@@ -4,7 +4,7 @@
 **Brand family**: Smart Business
 **Host**: SiteGround GrowBig (shared hosting)
 **Plan Date**: 2026-04-07
-**Last Updated**: 2026-04-07 — all open questions resolved; plan is ready for coding
+**Last Updated**: 2026-04-07 — schema updated after visual reference analysis; assessment table column model and multi-category consequence descriptions added
 **Status**: Approved for development
 
 ---
@@ -167,15 +167,34 @@ All protected routes: AuthMiddleware checks $_SESSION['user_id']
 
 All tables use PostgreSQL syntax. Primary keys are `SERIAL`. Timestamps are `TIMESTAMPTZ` defaulting to `NOW()`.
 
+### Key Design Decisions (from visual reference analysis)
+
+Two important additions were made to the schema after reviewing reference images of real-world risk assessments:
+
+1. **Multi-category consequence descriptions**: In professional risk matrices, a single severity level (e.g. "4") carries descriptions across *multiple consequence categories simultaneously* — Safety, Environmental Impact, Asset Damage, Business Interruption, etc. Two new tables (`matrix_consequence_categories` and `matrix_level_category_descriptions`) support this. The severity level label/dropdown remains simple, but the full consequence detail is available as a hover/reference panel.
+
+2. **Flexible assessment table columns**: Four distinct assessment table layouts exist in practice. All possible columns are stored in the `assessment_rows` table (all nullable). The active column set per assessment is stored as JSONB in `assessments.column_config`. Phase 1 uses four pre-set templates; Phase 2 adds free-form column selection.
+
+### Assessment Template Types
+
+Four pre-set layouts derived from reference templates:
+
+| Template Key | Columns Included |
+|---|---|
+| `simple` | ID, Activity/Condition, Hazard, Effect, Existing Controls (Desc+Type), Current Risk, Accept, Comments |
+| `simple_natural` | Adds Natural Risk (Sev/Lik/Risk + Accept) before Existing Controls |
+| `detailed` | Simple + Proposed Controls (Desc+Type), Residual Risk, Residual Accept |
+| `detailed_natural` | All columns — Natural Risk, Existing Controls, Current Risk, Proposed Controls, Residual Risk |
+
 ### Entity Relationship Summary
 
 ```
 users ──< assessments ──< assessment_rows
   │              │
-  │              └──> risk_matrices
-  │
-  ├──< risk_matrices ──< matrix_levels
-  │              └──< matrix_cells
+  │              └──> risk_matrices ──< matrix_consequence_categories
+  │                         │                    │
+  │                         ├──< matrix_levels   └──< matrix_level_category_descriptions
+  │                         └──< matrix_cells
   │
   ├──< hazard_library
   ├──< control_library
@@ -185,10 +204,11 @@ users ──< assessments ──< assessment_rows
 ### PostgreSQL Enum Types (defined before tables)
 
 ```sql
-CREATE TYPE user_role   AS ENUM ('admin', 'manager', 'assessor', 'viewer');
-CREATE TYPE matrix_axis AS ENUM ('severity', 'likelihood');
-CREATE TYPE assessment_status AS ENUM ('draft', 'in_review', 'approved', 'archived');
-CREATE TYPE share_permission  AS ENUM ('view', 'edit');
+CREATE TYPE user_role          AS ENUM ('admin', 'manager', 'assessor', 'viewer');
+CREATE TYPE matrix_axis        AS ENUM ('severity', 'likelihood');
+CREATE TYPE assessment_status  AS ENUM ('draft', 'in_review', 'approved', 'archived');
+CREATE TYPE share_permission   AS ENUM ('view', 'edit');
+CREATE TYPE assessment_template AS ENUM ('simple', 'simple_natural', 'detailed', 'detailed_natural');
 ```
 
 ### Table Definitions
@@ -215,7 +235,7 @@ Defines a risk rating scale — e.g., a 5×5 with severity and likelihood axes.
 |---|---|---|
 | `id` | SERIAL PRIMARY KEY | |
 | `owner_id` | INTEGER REFERENCES users(id) | NULL = system template |
-| `name` | TEXT NOT NULL | |
+| `name` | TEXT NOT NULL | e.g. "ISO 31010 5×5", "Oil & Gas 6×6" |
 | `description` | TEXT | |
 | `severity_axis_label` | TEXT NOT NULL DEFAULT 'Severity' | e.g. "Severity", "Consequence" |
 | `likelihood_axis_label` | TEXT NOT NULL DEFAULT 'Likelihood' | e.g. "Likelihood", "Probability" |
@@ -224,9 +244,20 @@ Defines a risk rating scale — e.g., a 5×5 with severity and likelihood axes.
 | `created_at` | TIMESTAMPTZ NOT NULL DEFAULT NOW() | |
 | `updated_at` | TIMESTAMPTZ NOT NULL DEFAULT NOW() | |
 
+#### `matrix_consequence_categories`
+
+**New table.** Defines the named consequence/severity dimensions for a matrix. Each severity level can carry a description in every category. This supports multi-column severity reference tables (e.g. Safety, Environmental Impact, Asset Damage, Business Interruption, Public Image, Public Notification).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | SERIAL PRIMARY KEY | |
+| `matrix_id` | INTEGER NOT NULL REFERENCES risk_matrices(id) ON DELETE CASCADE | |
+| `name` | TEXT NOT NULL | e.g. "Safety", "Environmental Impact (Remediation)", "Asset Damage" |
+| `sort_order` | SMALLINT NOT NULL DEFAULT 0 | Left-to-right display order |
+
 #### `matrix_levels`
 
-Labels and ordering for each axis value within a matrix.
+Labels and ordering for each axis value within a matrix. The `description` field here is a brief single-line label; multi-category severity descriptions live in `matrix_level_category_descriptions`.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -234,9 +265,24 @@ Labels and ordering for each axis value within a matrix.
 | `matrix_id` | INTEGER NOT NULL REFERENCES risk_matrices(id) ON DELETE CASCADE | |
 | `axis` | matrix_axis NOT NULL | |
 | `level_value` | SMALLINT NOT NULL | Numeric value (1, 2, 3…) |
-| `label` | TEXT NOT NULL | e.g. "Catastrophic", "Almost Certain" |
-| `description` | TEXT | Optional clarification for users |
+| `label` | TEXT NOT NULL | Short label: "Catastrophic", "Almost Certain", "Frequent" |
+| `one_word` | TEXT | Optional single-word descriptor: "Probable", "Rare" |
+| `quantitative_range` | TEXT | Optional: "> 10⁻¹", "10⁻¹ – 10⁻³" (for likelihood levels) |
+| `description` | TEXT | One-line description for the dropdown tooltip |
 | `sort_order` | SMALLINT NOT NULL DEFAULT 0 | |
+
+#### `matrix_level_category_descriptions`
+
+**New table.** Stores the detailed description for each (severity level, consequence category) pair. This powers the multi-column consequence table shown on the matrix reference panel.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | SERIAL PRIMARY KEY | |
+| `matrix_id` | INTEGER NOT NULL REFERENCES risk_matrices(id) ON DELETE CASCADE | |
+| `severity_level_value` | SMALLINT NOT NULL | References the severity level_value in matrix_levels |
+| `category_id` | INTEGER NOT NULL REFERENCES matrix_consequence_categories(id) ON DELETE CASCADE | |
+| `description` | TEXT NOT NULL | e.g. "Fatality, Public Hospitalization or Severe Health Effects" |
+| UNIQUE | (matrix_id, severity_level_value, category_id) | One description per cell |
 
 #### `matrix_cells`
 
@@ -249,8 +295,9 @@ Maps each severity/likelihood pair to a risk category and display colour.
 | `severity_value` | SMALLINT NOT NULL | |
 | `likelihood_value` | SMALLINT NOT NULL | |
 | `risk_category` | TEXT NOT NULL | e.g. "High", "Medium", "Low", "Extreme" |
+| `risk_band_label` | TEXT | Roman numeral or band label: "IV", "III", "II", "I" |
 | `colour_hex` | CHAR(7) NOT NULL | e.g. `#FF0000` |
-| `numeric_score` | SMALLINT | severity × likelihood or custom |
+| `numeric_score` | SMALLINT | severity × likelihood, or custom override |
 | UNIQUE | (matrix_id, severity_value, likelihood_value) | One cell per combination |
 
 #### `assessments`
@@ -267,34 +314,67 @@ Maps each severity/likelihood pair to a risk category and display colour.
 | `assessor_name` | TEXT | Free text (can differ from account name) |
 | `review_date` | DATE | When the next review is due |
 | `status` | assessment_status NOT NULL DEFAULT 'draft' | |
+| `template_type` | assessment_template NOT NULL DEFAULT 'simple' | Pre-set column layout (Phase 1) |
+| `column_config` | JSONB | Per-assessment column overrides; used in Phase 2 free-form customisation |
 | `copied_from_id` | INTEGER REFERENCES assessments(id) | NULL = original |
 | `created_at` | TIMESTAMPTZ NOT NULL DEFAULT NOW() | |
 | `updated_at` | TIMESTAMPTZ NOT NULL DEFAULT NOW() | |
 | `approved_at` | TIMESTAMPTZ | |
 | `approved_by_id` | INTEGER REFERENCES users(id) | |
 
+**Default `column_config` shape (JSONB):**
+
+```json
+{
+  "show_activity_condition": true,
+  "show_natural_risk": false,
+  "show_control_type": true,
+  "show_accept_yn": true,
+  "show_proposed_controls": false,
+  "show_residual_risk": false
+}
+```
+
+The `template_type` enum sets sensible defaults; `column_config` allows per-assessment overrides in Phase 2.
+
 #### `assessment_rows`
 
-One row per hazard being analysed. Risk level fields are denormalised from `matrix_cells` for performance and to preserve the value even if the matrix is later changed.
+One row per hazard being analysed. All optional columns are nullable — active columns are controlled by the parent assessment's `column_config`. Risk level fields are denormalised from `matrix_cells` to preserve values even if the matrix is later changed.
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | SERIAL PRIMARY KEY | |
 | `assessment_id` | INTEGER NOT NULL REFERENCES assessments(id) ON DELETE CASCADE | |
 | `sort_order` | SMALLINT NOT NULL DEFAULT 0 | Drag-reorderable |
+| `activity_condition` | TEXT | "Activity or Condition" column |
 | `hazard` | TEXT | Hazard description |
-| `effect` | TEXT | Effect / impact |
-| `existing_controls` | TEXT | Controls already in place |
+| `effect` | TEXT | Effect / impact (w/ exposure) |
+| **Natural risk (optional)** | | Only used when `show_natural_risk = true` |
+| `natural_severity_value` | SMALLINT | Severity before any controls |
+| `natural_likelihood_value` | SMALLINT | Likelihood before any controls |
+| `natural_risk_category` | TEXT | Denormalised from matrix_cells |
+| `natural_colour_hex` | CHAR(7) | Denormalised |
+| `natural_risk_accept` | BOOLEAN | Accept Y/N for natural risk |
+| **Existing controls** | | |
+| `existing_controls_description` | TEXT | Description of controls already in place |
+| `existing_controls_type` | TEXT | Control type/classification (e.g. "Engineering", "Admin", "PPE") |
+| **Current risk** | | Risk after existing controls |
 | `severity_value` | SMALLINT | |
 | `likelihood_value` | SMALLINT | |
-| `risk_category` | TEXT | Denormalised from matrix_cells |
-| `colour_hex` | CHAR(7) | Denormalised from matrix_cells |
-| `additional_controls` | TEXT | Recommended further controls |
-| `residual_severity_value` | SMALLINT | After additional controls |
-| `residual_likelihood_value` | SMALLINT | After additional controls |
+| `risk_category` | TEXT | Denormalised |
+| `colour_hex` | CHAR(7) | Denormalised |
+| `current_risk_accept` | BOOLEAN | Accept Y/N for current risk |
+| **Proposed controls (optional)** | | Only used in "detailed" templates |
+| `proposed_controls_description` | TEXT | Recommended additional controls |
+| `proposed_controls_type` | TEXT | Control type classification |
+| **Residual risk (optional)** | | Risk after proposed controls |
+| `residual_severity_value` | SMALLINT | |
+| `residual_likelihood_value` | SMALLINT | |
 | `residual_risk_category` | TEXT | Denormalised |
 | `residual_colour_hex` | CHAR(7) | Denormalised |
-| `comments` | TEXT | |
+| `residual_risk_accept` | BOOLEAN | Accept Y/N for residual risk |
+| **Misc** | | |
+| `comments` | TEXT | Additional controls/comments catch-all |
 | `created_at` | TIMESTAMPTZ NOT NULL DEFAULT NOW() | |
 | `updated_at` | TIMESTAMPTZ NOT NULL DEFAULT NOW() | |
 
@@ -319,6 +399,7 @@ Reusable hazard descriptions with optional suggested effect text.
 | `id` | SERIAL PRIMARY KEY | |
 | `owner_id` | INTEGER REFERENCES users(id) | NULL = global |
 | `control_text` | TEXT NOT NULL | |
+| `control_type` | TEXT | Default type suggestion (e.g. "Engineering", "PPE") |
 | `tags` | TEXT | |
 | `use_count` | INTEGER NOT NULL DEFAULT 0 | |
 | `created_at` | TIMESTAMPTZ NOT NULL DEFAULT NOW() | |
@@ -330,14 +411,12 @@ Reusable hazard descriptions with optional suggested effect text.
 | `id` | SERIAL PRIMARY KEY | |
 | `assessment_id` | INTEGER NOT NULL REFERENCES assessments(id) ON DELETE CASCADE | |
 | `shared_with_user_id` | INTEGER REFERENCES users(id) | NULL = public/link share |
-| `share_token` | TEXT UNIQUE | 64-char cryptographically random token (for link sharing) |
+| `share_token` | TEXT UNIQUE | 64-char cryptographically random token |
 | `permission` | share_permission NOT NULL DEFAULT 'view' | |
 | `created_at` | TIMESTAMPTZ NOT NULL DEFAULT NOW() | |
 | `expires_at` | TIMESTAMPTZ | NULL = no expiry |
 
 #### `audit_log`
-
-Tracks who changed what and when on assessments. Used in Phase 3.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -345,7 +424,7 @@ Tracks who changed what and when on assessments. Used in Phase 3.
 | `user_id` | INTEGER REFERENCES users(id) | NULL = system action |
 | `assessment_id` | INTEGER REFERENCES assessments(id) ON DELETE SET NULL | |
 | `action` | TEXT NOT NULL | e.g. "row_added", "status_changed", "shared" |
-| `detail` | TEXT | JSON blob with changed fields/values |
+| `detail` | TEXT | JSON blob with before/after values |
 | `created_at` | TIMESTAMPTZ NOT NULL DEFAULT NOW() | |
 
 ---
@@ -367,23 +446,32 @@ These features must be complete before the app is usable.
 
 #### 5.2 System Risk Matrix Templates
 
-- 3 built-in matrices, seeded on first deployment:
-  - **Simple 3×3**: Low / Medium / High, everyday use
-  - **Standard 4×4**: business-level risk assessments
-  - **Detailed 5×5**: AS/NZS ISO 31000 style with Catastrophic/Major/Moderate/Minor/Insignificant
+- **10 built-in matrices** seeded on first deployment, all read-only:
+  - Simple 3×3 (everyday use)
+  - Standard 4×4 (business-level)
+  - Detailed 5×5 (AS/NZS ISO 31000 style)
+  - **ISO 31010** 5×5 (Insignificant→Catastrophic / Rare→Almost Certain)
+  - **Oil & Gas Shell/BP** 6×6 (Negligible→Catastrophic / Remote→Continuous)
+  - **FAA / ICAO** 5×5 (Negligible→Catastrophic / Improbable→Frequent)
+  - **NORSOK Z-013** 5×5 (A→E / Very Rare→Frequent)
+  - **HSE UK Offshore** 5×5 (Negligible→Catastrophic / Remote→Frequent)
+  - **NFPA Fire** 3×5 (Minor→Catastrophic / Rare→Frequent)
+  - **U.S. Army** 5×4 ordinal (Negligible→Catastrophic / Unlikely→Frequent)
 - Each matrix displayed as an interactive colour-coded grid in the UI
-- System templates are read-only; users can clone any system template to customise it
+- The severity reference panel shows all consequence categories (Safety, Environmental, Asset Damage, etc.) where defined — available as a collapsible reference table and on hover in the severity dropdown
+- System templates are read-only; users can clone any template to customise it
 
 #### 5.3 Assessment CRUD
 
-- Create a new assessment: choose matrix template, fill header metadata
+- Create a new assessment: choose matrix template, choose **assessment template type** (Simple / Simple+Natural / Detailed / Detailed+Natural), fill header metadata
+- The chosen template type pre-sets which columns are active (controls the `column_config` JSONB)
 - Add/edit/delete hazard rows inline in the assessment table
-- Drag-to-reorder rows (HTML5 drag API or SortableJS lightweight library)
+- Drag-to-reorder rows
 - Severity + Likelihood dropdowns auto-fill Risk Level cell live with colour from matrix
-- Residual risk section per row (mirrored severity/likelihood dropdowns)
-- **Auto-save**: localStorage-first approach — changes persist to localStorage immediately; sync to server on manual save, on page unload, or on visibility change
+- All row columns (natural risk, existing controls type, accept Y/N, proposed controls, residual risk) are stored in the DB and shown/hidden based on the template type
+- **Auto-save**: localStorage-first — changes persist to localStorage immediately; sync to server on manual save, page unload, or visibility change
 - Assessment status workflow: **Draft → In Review → Approved → Archived**
-- Duplicate/copy an existing assessment (creates a new Draft with identical rows)
+- Duplicate/copy an existing assessment (preserves template type and column config)
 
 #### 5.4 Assessment List / Dashboard
 
@@ -401,9 +489,18 @@ These features must be complete before the app is usable.
 #### 5.6 Custom Risk Matrix Builder
 
 - Visual builder: choose dimensions (2×2 up to 6×6), label each axis level, assign risk category + colour to each cell
-- Live preview updates as you build
+- For each severity level: add named consequence categories and write descriptions (e.g. Safety, Environmental, Financial) — these populate the matrix reference panel
+- Likelihood levels: add label, one-word descriptor, and optional quantitative frequency range
+- Live grid preview updates as you build
 - Save as personal or public template
-- Clone any existing matrix to customise
+- Clone any existing matrix (including system ones) to customise
+
+#### 5.6b Custom Assessment Column Layout
+
+- Per-assessment toggle UI: turn individual columns on/off freely (not just the 4 pre-set types)
+- Reorder columns via drag-handle
+- Save a custom layout as a named personal template for reuse in future assessments
+- Phase 1 uses the 4 pre-set `template_type` options; Phase 2 replaces this with free-form column selection that still writes to the same `column_config` JSONB field
 
 #### 5.7 Hazard & Control Library
 
@@ -564,27 +661,37 @@ GET  /admin/audit                   → Audit log viewer
 #### Assessment Editor (Core Screen — most important)
 
 ```
-┌─ Assessment Header (collapsible) ────────────────────────────────┐
-│  Title | Ref # | Assessor | Location | Review Date | Status      │
-│  Matrix: [5×5 AS/NZS ▼]    [Matrix Reference ↗]                 │
-└──────────────────────────────────────────────────────────────────┘
+┌─ Assessment Header (collapsible) ────────────────────────────────────┐
+│  Title | Ref # | Assessor | Location | Review Date | Status          │
+│  Matrix: [5×5 AS/NZS ▼]    Template: [Detailed ▼]   [Matrix Ref ↗] │
+└──────────────────────────────────────────────────────────────────────┘
 
-┌─ Toolbar ────────────────────────────────────────────────────────┐
-│  [↑ Sync to Server]  [⬇ Export PDF]  [⬇ Export Excel]           │
-│  [Share]  [Copy Assessment]  [Change Status ▼]                   │
-│  Status: ● Unsaved changes                                       │
-└──────────────────────────────────────────────────────────────────┘
+┌─ Toolbar ──────────────────────────────────────────────────────────┐
+│  [↑ Sync to Server]  [⬇ Export PDF]  [⬇ Export Excel]  [⬇ CSV]   │
+│  [Share]  [Copy Assessment]  [Change Status ▼]                     │
+│  Status: ● Unsaved changes — click Sync to save                    │
+└────────────────────────────────────────────────────────────────────┘
 
-┌─ Hazard Analysis Table (horizontally scrollable) ────────────────┐
-│ ≡ # │ Hazard │ Effect │ Existing Controls │ Sev │ Lik │ RISK     │
-│     │        │        │ Additional Controls│ Sev │ Lik │ RESIDUAL │
-│     │        │        │ Comments          │     │     │ [×]      │
-└──────────────────────────────────────────────────────────────────┘
+┌─ Hazard Analysis Table (horizontally scrollable) ──────────────────┐
+│ Columns shown depend on template type:                             │
+│                                                                    │
+│ SIMPLE:                                                            │
+│  ≡ # │ Act/Cond │ Hazard │ Effect │ Controls (Desc│Type) │         │
+│                           Sev │ Lik │ RISK │ Accept │ Comments    │
+│                                                                    │
+│ DETAILED:                                                          │
+│  ≡ # │ Act/Cond │ Hazard │ Effect │ Nat.Risk │ Controls (Desc│Type)│
+│       Cur.Risk │ Accept │ Prop.Controls (Desc│Type) │ Res.Risk     │
+│       Res.Accept │ Comments                                        │
+└────────────────────────────────────────────────────────────────────┘
    [+ Add Row]
 ```
 
-- Each row has two sub-rows: initial risk (top) and residual risk (bottom)
-- The Risk Level cell is a full-colour block (matching the matrix), showing the category text in white
+- Columns shown are driven by the assessment's `column_config` / `template_type`
+- Each row is a single expandable table row — on narrow screens, less-used columns collapse
+- The Risk Level cell (current, natural, and residual) is a full-colour block matching the matrix, showing the category text in a contrasting colour
+- **Accept Y/N** column renders as a large checkbox or toggle — visual at a glance
+- Severity/Likelihood dropdowns: hovering the dropdown shows a tooltip with that level's consequence category descriptions (e.g. "Safety: Fatality… / Environmental: >$10MM…")
 - Inline editing: click any cell to edit in-place — no modal dialogs
 - Drag handle (`≡`) on the left for row reordering
 - Risk Level cell updates in real time as severity/likelihood dropdowns change
@@ -713,19 +820,23 @@ riskasm/
 │
 ├── database/
 │   ├── migrations/
-│   │   ├── 001_create_types.sql        ← PostgreSQL ENUM type definitions
+│   │   ├── 001_create_types.sql                    ← PostgreSQL ENUM type definitions
 │   │   ├── 002_create_users.sql
 │   │   ├── 003_create_risk_matrices.sql
-│   │   ├── 004_create_matrix_levels.sql
-│   │   ├── 005_create_matrix_cells.sql
-│   │   ├── 006_create_assessments.sql
-│   │   ├── 007_create_assessment_rows.sql
-│   │   ├── 008_create_hazard_library.sql
-│   │   ├── 009_create_control_library.sql
-│   │   ├── 010_create_assessment_shares.sql
-│   │   └── 011_create_audit_log.sql
+│   │   ├── 004_create_matrix_consequence_categories.sql  ← NEW: multi-category severity
+│   │   ├── 005_create_matrix_levels.sql
+│   │   ├── 006_create_matrix_level_category_descriptions.sql ← NEW: per-category descriptions
+│   │   ├── 007_create_matrix_cells.sql
+│   │   ├── 008_create_assessments.sql              ← includes template_type + column_config
+│   │   ├── 009_create_assessment_rows.sql           ← full column set (all nullable)
+│   │   ├── 010_create_hazard_library.sql
+│   │   ├── 011_create_control_library.sql
+│   │   ├── 012_create_assessment_shares.sql
+│   │   └── 013_create_audit_log.sql
 │   └── seeds/
-│       ├── system_matrices.sql         ← 3×3, 4×4, 5×5 built-in matrices with colour cells
+│       ├── system_matrices.sql         ← 3×3, 4×4, 5×5 + 7 industry standards (ISO 31010,
+│       │                                  Oil&Gas Shell/BP, FAA/ICAO, NORSOK Z-013,
+│       │                                  HSE UK Offshore, NFPA Fire, U.S. Army)
 │       └── sample_hazard_library.sql   ← Starter global hazard/control entries
 │
 ├── vendor/                             ← Composer dependencies (gitignored)
@@ -751,10 +862,10 @@ riskasm/
 |---|---|---|
 | M1 | **Project Scaffold** | Folder structure, `composer.json`, Router, PDO/pgsql wrapper, `.htaccess`, base Bulma layout, `.env` loading, CSRF helper |
 | M2 | **Auth System** | Login, register, logout, password reset (PHPMailer + MXroute), sessions, role middleware |
-| M3 | **Database Migrations & Seeds** | All 11 migration files; 3 system matrices seeded with correct levels, cells, and colours |
-| M4 | **Assessment CRUD** | Create, list, view, delete, copy assessments; header editing form |
-| M5 | **Assessment Editor** | Full hazard row table: add, edit, delete, drag-reorder; live risk level colouring; localStorage auto-save with sync button |
-| M6 | **PDF + CSV Export** | mPDF server-side PDF with colour cells; CSV download |
+| M3 | **Database Migrations & Seeds** | All 13 migration files; 10 system matrices seeded (3 generic + 7 industry standards) with full levels, consequence categories, category descriptions, and colour cells |
+| M4 | **Assessment CRUD** | Create (with template type selection), list, view, delete, copy assessments; header editing |
+| M5 | **Assessment Editor** | Full column-aware hazard row table: add, edit, delete, drag-reorder; live risk level colouring; Accept Y/N toggles; localStorage auto-save with sync button |
+| M6 | **PDF + CSV Export** | mPDF server-side PDF with colour cells, all visible columns, and Smart Risk Assessment branding; CSV download |
 
 **Phase 1 complete = a fully usable, deployable MVP.**
 
@@ -762,19 +873,20 @@ riskasm/
 
 | # | Milestone | Deliverables |
 |---|---|---|
-| M7 | **Custom Matrix Builder** | Visual builder UI; save/edit/delete/clone matrices |
-| M8 | **Hazard & Control Library** | Library CRUD; auto-complete type-ahead in editor rows; "save to library" shortcut |
-| M9 | **Sharing** | Share with user; public token link with expiry; revoke; public view page |
-| M10 | **Excel Export** | PhpSpreadsheet `.xlsx` with colour-coded cells and header |
+| M7 | **Custom Matrix Builder** | Visual builder UI with consequence category editor; save/edit/delete/clone matrices |
+| M8 | **Free-form Column Layout** | Per-assessment column toggle UI; save layout as personal template |
+| M9 | **Hazard & Control Library** | Library CRUD with control_type field; auto-complete in editor rows; "save to library" shortcut |
+| M10 | **Sharing** | Share with user; public token link with expiry; revoke; public view page |
+| M11 | **Excel Export** | PhpSpreadsheet `.xlsx` with colour-coded cells and header, respects active columns |
 
 ### Phase 3 — Polish & Reporting (Target: 2–3 weeks)
 
 | # | Milestone | Deliverables |
 |---|---|---|
-| M11 | **Reporting** | Risk register view; per-assessment stats; matrix distribution heat map |
-| M12 | **Notifications & Audit** | Email on share; review date reminder (cron); audit trail table; admin audit viewer |
-| M13 | **Admin Panel** | User list, enable/disable, role management |
-| M14 | **Branded Exports** | Logo upload per user; applied to PDF and Excel |
+| M12 | **Reporting** | Risk register view; per-assessment stats; matrix distribution heat map |
+| M13 | **Notifications & Audit** | Email on share; review date reminder (cron); audit trail table; admin audit viewer |
+| M14 | **Admin Panel** | User list, enable/disable, role management |
+| M15 | **Branded Exports** | Logo upload per user; applied to PDF and Excel |
 
 ### Phase 4 — AI Integration (Future, no timeline)
 
@@ -886,9 +998,12 @@ All open questions from initial planning have been resolved. This table document
 | 4 | **Multi-tenancy** | **Individual users only** | Simpler schema and access control. No organisation layer. Global shared library + public matrix templates serve the sharing need. |
 | 5 | **Email provider** | **MXroute via PHPMailer SMTP** | Project owner already has MXroute account. PHPMailer is the standard PHP email library. |
 | 6 | **App name / branding** | **"Smart Risk Assessment"** under **"Smart Business"** umbrella | Establishes consistent brand family. PDF/Excel exports and page titles will use Smart Risk Assessment branding. |
+| 7 | **Multiple consequence categories per severity level** | **Add to schema now** (`matrix_consequence_categories` + `matrix_level_category_descriptions` tables) | Severity levels in real risk work carry descriptions across multiple dimensions (Safety, Environmental, Financial, etc.). Schema change is cheap pre-code; expensive post-code. UI for display is Phase 1; UI for editing is Phase 2. |
+| 8 | **Flexible assessment table columns** | **Full column set in schema now; pre-set template types in Phase 1 UI; free-form column picker in Phase 2** | Four real-world table layouts identified (Simple, Simple+Natural, Detailed, Detailed+Natural). All columns stored nullable in `assessment_rows`; active set controlled by `column_config` JSONB. Phase 1 offers 4 presets; Phase 2 adds free-form toggles. |
+| 9 | **Industry-standard matrix seeds** | **Seed all 10 system matrices** (3 generic + 7 industry: ISO 31010, Oil & Gas Shell/BP, FAA/ICAO, NORSOK Z-013, HSE UK Offshore, NFPA Fire, U.S. Army) | Saves users from building common matrices from scratch; demonstrates the system's breadth immediately. |
 
 ---
 
 *Plan created: 2026-04-07*
-*All decisions finalised: 2026-04-07*
+*Schema updated: 2026-04-07 — multi-category consequence descriptions and flexible column model added*
 *Next step: Begin Phase 1, Milestone M1 — project scaffold.*
