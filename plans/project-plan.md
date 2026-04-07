@@ -4,7 +4,7 @@
 **Brand family**: Smart Business
 **Host**: SiteGround GrowBig (shared hosting)
 **Plan Date**: 2026-04-07
-**Last Updated**: 2026-04-07 — multiple controls per hazard row added (new `row_controls` table); full industry matrix seed data confirmed from PDF reference
+**Last Updated**: 2026-04-07 — `matrix_risk_bands` table added (risk band descriptions); `exposure_description` and `exposed_assets` columns added to `assessment_rows`; two-descriptor pattern confirmed for likelihood, severity, and risk ranking
 **Status**: Approved for development
 
 ---
@@ -169,13 +169,27 @@ All tables use PostgreSQL syntax. Primary keys are `SERIAL`. Timestamps are `TIM
 
 ### Key Design Decisions (from visual reference analysis)
 
-Three important additions were made to the schema after reviewing reference images and the Standard Matrices PDF:
+Four important additions were made to the schema after reviewing reference images and the Standard Matrices PDF:
 
 1. **Multi-category consequence descriptions**: In professional risk matrices, a single severity level (e.g. "4") carries descriptions across *multiple consequence categories simultaneously* — Safety, Environmental Impact, Asset Damage, Business Interruption, etc. Two new tables (`matrix_consequence_categories` and `matrix_level_category_descriptions`) support this. The severity level label/dropdown remains simple, but the full consequence detail is available as a hover/reference panel.
 
 2. **Flexible assessment table columns**: Four distinct assessment table layouts exist in practice. All possible columns are stored in the `assessment_rows` table (all nullable). The active column set per assessment is stored as JSONB in `assessments.column_config`. Phase 1 uses four pre-set templates; Phase 2 adds free-form column selection.
 
 3. **Multiple controls per hazard row**: A single hazard routinely has several control measures associated with it — each potentially of a different type (Engineering, Administrative, PPE, etc.). Controls are NOT stored as text blobs in the row. Instead, each control is a separate record in the `row_controls` table, linked to its parent row and optionally to a `control_library` entry. This enables per-control typing, library linking, and future reporting on individual controls across assessments.
+
+4. **Risk band definitions with two-level descriptions**: Real-world risk ranking tables (see Reference Image 3) show each risk band (e.g. "IV / High") carrying both a *short description* (bold lead-in: "High Risk") and a *full management-guidance description* ("Manage risk utilizing prevention and/or mitigation with highest priority…"). A dedicated `matrix_risk_bands` table stores this per-band metadata, including the numeric score range, band label, one-word name, colour, and both descriptor levels. `matrix_cells` references this table by FK and retains denormalized `risk_category` and `colour_hex` for fast UI cell rendering.
+
+### Two-Descriptor Pattern Summary
+
+All three scored dimensions carry at least two distinct descriptor levels, as confirmed from reference images:
+
+| Dimension | Short Descriptor | Long Descriptor | Numeric |
+|---|---|---|---|
+| **Likelihood** | `one_word` — e.g. "Frequent", "Probable" | `description` — e.g. "Likely to occur several times a year" | `level_value` + `quantitative_range` (e.g. "> 10⁻¹") |
+| **Severity** | `label` — e.g. "Catastrophic", "Minor" | Per-category descriptions in `matrix_level_category_descriptions` (Safety, Environmental, Asset Damage, Business Interruption, Public Image, Public Notification) | `level_value` |
+| **Risk Ranking** | `band_name` — e.g. "High" + `band_label` — e.g. "IV" | `short_description` + `full_description` — management guidance in `matrix_risk_bands` | `score_min`–`score_max` |
+
+This pattern informs tooltips, reference panels, dropdowns, and PDF/Excel exports throughout the app.
 
 ### Assessment Template Types
 
@@ -196,7 +210,8 @@ users ──< assessments ──< assessment_rows ──< row_controls ──> c
   │              └──> risk_matrices ──< matrix_consequence_categories
   │                         │                    │
   │                         ├──< matrix_levels   └──< matrix_level_category_descriptions
-  │                         └──< matrix_cells
+  │                         ├──< matrix_risk_bands
+  │                         └──< matrix_cells ──> matrix_risk_bands
   │
   ├──< hazard_library
   ├──< control_library
@@ -206,12 +221,12 @@ users ──< assessments ──< assessment_rows ──< row_controls ──> c
 ### PostgreSQL Enum Types (defined before tables)
 
 ```sql
-CREATE TYPE user_role          AS ENUM ('admin', 'manager', 'assessor', 'viewer');
-CREATE TYPE matrix_axis        AS ENUM ('severity', 'likelihood');
-CREATE TYPE assessment_status  AS ENUM ('draft', 'in_review', 'approved', 'archived');
-CREATE TYPE share_permission   AS ENUM ('view', 'edit');
+CREATE TYPE user_role           AS ENUM ('admin', 'manager', 'assessor', 'viewer');
+CREATE TYPE matrix_axis         AS ENUM ('severity', 'likelihood');
+CREATE TYPE assessment_status   AS ENUM ('draft', 'in_review', 'approved', 'archived');
+CREATE TYPE share_permission    AS ENUM ('view', 'edit');
 CREATE TYPE assessment_template AS ENUM ('simple', 'simple_natural', 'detailed', 'detailed_natural');
-CREATE TYPE control_phase      AS ENUM ('existing', 'proposed');
+CREATE TYPE control_phase       AS ENUM ('existing', 'proposed');
 ```
 
 ### Table Definitions
@@ -258,9 +273,29 @@ Defines a risk rating scale — e.g., a 5×5 with severity and likelihood axes.
 | `name` | TEXT NOT NULL | e.g. "Safety", "Environmental Impact (Remediation)", "Asset Damage" |
 | `sort_order` | SMALLINT NOT NULL DEFAULT 0 | Left-to-right display order |
 
+#### `matrix_risk_bands`
+
+**New table.** One record per risk band in a matrix. Stores the full two-level descriptor for each band: a short description (used as a bold lead-in) and a full management-guidance description. Also holds the numeric score range and colour. `matrix_cells` references this table by FK.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | SERIAL PRIMARY KEY | |
+| `matrix_id` | INTEGER NOT NULL REFERENCES risk_matrices(id) ON DELETE CASCADE | |
+| `band_label` | TEXT NOT NULL | Short label used in the cell: "IV", "III", "II", "I", "Extreme", "High", etc. |
+| `band_name` | TEXT NOT NULL | One-word category name: "High", "Significant", "Medium", "Low" |
+| `score_min` | SMALLINT | Minimum numeric score for this band (NULL for ordinal matrices like U.S. Army) |
+| `score_max` | SMALLINT | Maximum numeric score |
+| `colour_hex` | CHAR(7) NOT NULL | e.g. `#CC0000` — the authoritative colour for this band |
+| `short_description` | TEXT | Bold lead-in text: "High Risk", "Medium Risk with Controls Verified" |
+| `full_description` | TEXT | Full management guidance: "Manage risk utilizing prevention and/or mitigation with highest priority. Promote issue to appropriate management level…" |
+| `sort_order` | SMALLINT NOT NULL DEFAULT 0 | 0 = highest risk band (displayed first in reference panel) |
+| UNIQUE | (matrix_id, band_label) | One definition per band label per matrix |
+
 #### `matrix_levels`
 
 Labels and ordering for each axis value within a matrix. The `description` field here is a brief single-line label; multi-category severity descriptions live in `matrix_level_category_descriptions`.
+
+**Two-descriptor pattern for likelihood**: `one_word` is the short descriptor shown in the dropdown ("Frequent"); `description` is the long descriptor shown in tooltips and the reference panel ("Likely to occur several times a year"); `quantitative_range` adds the frequency range ("> 10⁻¹"). For severity, `label` is the short descriptor; the per-category entries in `matrix_level_category_descriptions` are the long descriptors — `one_word` is optional for severity (may duplicate `label`).
 
 | Column | Type | Notes |
 |---|---|---|
@@ -289,7 +324,7 @@ Labels and ordering for each axis value within a matrix. The `description` field
 
 #### `matrix_cells`
 
-Maps each severity/likelihood pair to a risk category and display colour.
+Maps each severity/likelihood pair to a risk band. The `risk_band_id` FK is the authoritative link; `risk_category` and `colour_hex` are denormalized copies of `matrix_risk_bands.band_name` and `matrix_risk_bands.colour_hex` maintained for fast UI cell-colour rendering without a JOIN.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -297,11 +332,13 @@ Maps each severity/likelihood pair to a risk category and display colour.
 | `matrix_id` | INTEGER NOT NULL REFERENCES risk_matrices(id) ON DELETE CASCADE | |
 | `severity_value` | SMALLINT NOT NULL | |
 | `likelihood_value` | SMALLINT NOT NULL | |
-| `risk_category` | TEXT NOT NULL | e.g. "High", "Medium", "Low", "Extreme" |
-| `risk_band_label` | TEXT | Roman numeral or band label: "IV", "III", "II", "I" |
-| `colour_hex` | CHAR(7) NOT NULL | e.g. `#FF0000` |
-| `numeric_score` | SMALLINT | severity × likelihood, or custom override |
+| `risk_band_id` | INTEGER REFERENCES matrix_risk_bands(id) ON DELETE SET NULL | FK to full band definition (label, descriptions, score range, colour) |
+| `risk_category` | TEXT NOT NULL | Denormalized: `matrix_risk_bands.band_name` — e.g. "High", "Medium", "Low" |
+| `colour_hex` | CHAR(7) NOT NULL | Denormalized: `matrix_risk_bands.colour_hex` — kept for fast cell rendering |
+| `numeric_score` | SMALLINT | severity × likelihood, or custom override; NULL for ordinal matrices |
 | UNIQUE | (matrix_id, severity_value, likelihood_value) | One cell per combination |
+
+> `risk_band_label` (previously a free-text TEXT field per cell) has been removed. The band label now lives exclusively in `matrix_risk_bands.band_label` and is accessed via `risk_band_id`.
 
 #### `assessments`
 
@@ -330,6 +367,8 @@ Maps each severity/likelihood pair to a risk category and display colour.
 ```json
 {
   "show_activity_condition": true,
+  "show_exposure_description": false,
+  "show_exposed_assets": false,
   "show_natural_risk": false,
   "show_control_type": true,
   "show_accept_yn": true,
@@ -337,6 +376,8 @@ Maps each severity/likelihood pair to a risk category and display colour.
   "show_residual_risk": false
 }
 ```
+
+`show_exposure_description` and `show_exposed_assets` are off by default in the Simple templates but can be enabled independently. Some industry formats (see Reference Image 4) use Exposure Description + Exposed Assets as their primary hazard-context columns in place of a single Effect column.
 
 The `template_type` enum sets sensible defaults; `column_config` allows per-assessment overrides in Phase 2.
 
@@ -353,7 +394,9 @@ One row per hazard being analysed. All optional columns are nullable — active 
 | `sort_order` | SMALLINT NOT NULL DEFAULT 0 | Drag-reorderable |
 | `activity_condition` | TEXT | "Activity or Condition" column |
 | `hazard` | TEXT | Hazard description |
-| `effect` | TEXT | Effect / impact (w/ exposure) |
+| `exposure_description` | TEXT | Optional: how the hazard causes exposure (the mechanism — e.g. "Operator fills tank using float gauge; requires visual attention; manual shutoff"). Distinct from the consequence/effect. |
+| `exposed_assets` | TEXT | Optional: who or what is at risk (e.g. "Employees, contractors, local community, environment"). |
+| `effect` | TEXT | Effect / consequence — the harm that results if the hazard is realised |
 | **Natural risk (optional)** | | Only used when `show_natural_risk = true` |
 | `natural_severity_value` | SMALLINT | Severity before any controls |
 | `natural_likelihood_value` | SMALLINT | Likelihood before any controls |
@@ -869,14 +912,15 @@ riskasm/
 │   │   ├── 004_create_matrix_consequence_categories.sql
 │   │   ├── 005_create_matrix_levels.sql
 │   │   ├── 006_create_matrix_level_category_descriptions.sql
-│   │   ├── 007_create_matrix_cells.sql
-│   │   ├── 008_create_assessments.sql              ← includes template_type + column_config JSONB
-│   │   ├── 009_create_assessment_rows.sql           ← risk columns only; no control text fields
-│   │   ├── 010_create_row_controls.sql              ← NEW: multiple controls per row
-│   │   ├── 011_create_hazard_library.sql
-│   │   ├── 012_create_control_library.sql           ← includes control_type field
-│   │   ├── 013_create_assessment_shares.sql
-│   │   └── 014_create_audit_log.sql
+│   │   ├── 007_create_matrix_risk_bands.sql         ← NEW: risk band definitions with two-level descriptions
+│   │   ├── 008_create_matrix_cells.sql              ← references matrix_risk_bands via risk_band_id FK
+│   │   ├── 009_create_assessments.sql              ← includes template_type + column_config JSONB
+│   │   ├── 010_create_assessment_rows.sql           ← risk columns only; no control text fields; adds exposure_description + exposed_assets
+│   │   ├── 011_create_row_controls.sql              ← multiple controls per row
+│   │   ├── 012_create_hazard_library.sql
+│   │   ├── 013_create_control_library.sql           ← includes control_type field
+│   │   ├── 014_create_assessment_shares.sql
+│   │   └── 015_create_audit_log.sql
 │   └── seeds/
 │       ├── system_matrices.sql         ← 3×3 generic, 4×4 generic, 5×5 generic, plus:
 │       │                                  ISO 31010 (5×5), Oil & Gas Shell/BP (6×6),
@@ -913,7 +957,7 @@ riskasm/
 |---|---|---|
 | M1 | **Project Scaffold** | Folder structure, `composer.json`, Router, PDO/pgsql wrapper, `.htaccess`, base Bulma layout, `.env` loading, CSRF helper |
 | M2 | **Auth System** | Login, register, logout, password reset (PHPMailer + MXroute), sessions, role middleware |
-| M3 | **Database Migrations & Seeds** | All 13 migration files; 10 system matrices seeded (3 generic + 7 industry standards) with full levels, consequence categories, category descriptions, and colour cells |
+| M3 | **Database Migrations & Seeds** | All 15 migration files; 10 system matrices seeded (3 generic + 7 industry standards) with full levels, consequence categories, category descriptions, risk band definitions (band label, band name, score range, colour, short and full descriptions), and colour cells |
 | M4 | **Assessment CRUD** | Create (with template type selection), list, view, delete, copy assessments; header editing |
 | M5 | **Assessment Editor** | Full column-aware hazard row table: add, edit, delete, drag-reorder; live risk level colouring; Accept Y/N toggles; localStorage auto-save with sync button |
 | M6 | **PDF + CSV Export** | mPDF server-side PDF with colour cells, all visible columns, and Smart Risk Assessment branding; CSV download |
@@ -1053,12 +1097,51 @@ All open questions from initial planning have been resolved. This table document
 | 8 | **Flexible assessment table columns** | **Full column set in schema now; pre-set template types in Phase 1 UI; free-form column picker in Phase 2** | Four real-world table layouts identified (Simple, Simple+Natural, Detailed, Detailed+Natural). All columns stored nullable in `assessment_rows`; active set controlled by `column_config` JSONB. Phase 1 offers 4 presets; Phase 2 adds free-form toggles. |
 | 9 | **Industry-standard matrix seeds** | **Seed all 10 system matrices** (3 generic + 7 industry: ISO 31010, Oil & Gas Shell/BP, FAA/ICAO, NORSOK Z-013, HSE UK Offshore, NFPA Fire, U.S. Army) | Saves users from building common matrices from scratch; demonstrates the system's breadth immediately. |
 | 10 | **Multiple controls per hazard row** | **Separate `row_controls` table** (not text blobs in the row) | A single hazard routinely has multiple controls of different types. A relational table enables per-control typing, library linkage, individual reordering, and future reporting. Text blob approach rejected. |
+| 11 | **Risk band definitions with two-level descriptions** | **`matrix_risk_bands` table** with `band_label`, `band_name`, `score_min`/`score_max`, `colour_hex`, `short_description`, `full_description` | Real-world risk categories carry both a short name ("High Risk") and a full management-guidance paragraph ("Manage risk utilizing prevention…"). Without a dedicated table, this text had no home in the schema. `matrix_cells` references the bands table via `risk_band_id` FK; `risk_category` and `colour_hex` are retained in `matrix_cells` as denormalized columns for fast cell rendering without a JOIN. |
+| 12 | **Exposure description and exposed assets columns** | Add `exposure_description` TEXT and `exposed_assets` TEXT (both nullable) to `assessment_rows` | Reference Image 4 shows that several industry assessment formats distinguish between the *mechanism* of exposure (how the hazard causes harm), the *exposed parties* (who/what is at risk), and the *effect/consequence* (the harm itself). The current `effect` column covers only consequences. These new columns are off by default (`show_exposure_description: false`, `show_exposed_assets: false`) and enabled via `column_config`. |
 
 ---
 
 ## Appendix A — Confirmed Industry Matrix Seed Data
 
-All level labels, likelihood scales, and risk band thresholds confirmed from *Standard Matrices.pdf*.
+All level labels, likelihood scales, and risk band thresholds confirmed from *Standard Matrices.pdf* and reference images.
+
+Each section includes a `matrix_risk_bands` seed table with all fields required by the schema: `band_label`, `band_name`, `score_min`, `score_max`, `colour_hex`, `short_description`, and `full_description`. The `sort_order` column starts at 0 = highest risk band.
+
+### Generic 5×5 with I–IV Bands *(matches Reference Images 1–3)*
+
+This is the style shown in the reference images supplied by the client. It is seeded as the "Standard 5×5" generic system template and is also the format used in typical environmental/industrial assessments (e.g. the Biodiesel example in Reference Image 4).
+
+**Likelihood (`matrix_levels`, axis = likelihood):**
+
+| level_value | label | one_word | quantitative_range | description |
+|---|---|---|---|---|
+| 5 | Frequent | Frequent | > 10⁻¹ | Likely to occur several times a year |
+| 4 | Probable | Probable | 10⁻¹ – 10⁻³ | Expected to occur at least once in 10 years |
+| 3 | Rare | Rare | 10⁻⁴ – 10⁻³ | Occurrence considered rare |
+| 2 | Remote | Remote | 10⁻⁶ – 10⁻⁴ | Not expected nor anticipated to occur |
+| 1 | Improbable | Improbable | < 10⁻⁶ | Virtually improbable and unrealistic |
+
+**Severity (`matrix_levels`, axis = severity) — per-category descriptions in `matrix_level_category_descriptions`:**
+
+| level_value | label | Safety | Envir Impact (Remediation) | Asset Damage | Business Interruption | Neg. Public Image Exposure | Public Notification |
+|---|---|---|---|---|---|---|---|
+| 5 | Critical | Fatality, Public Hospitalization or Severe Health Effects | > $10 MM | > $10MM | > $10MM | National Coverage | Complete Area Evacuation |
+| 4 | Serious | Permanent Disability, Multiple Hospitalizations or Major Health Effects | $1 MM to $10 MM | $1 MM to $10 MM | $1 MM to $10 MM | Regional Coverage | Selected Areas of Evacuation Notification |
+| 3 | Moderate | One or More Lost Time Workday Cases to Significant Health Effects | $100 M to $1 MM | $100 M to $1 MM | $100 M to $1 MM | State Coverage | Shelter in Place Notification |
+| 2 | Minor | Medical Treatment with Restricted Duty or Medium Health Effects | $10 M to $100 M | $10 M to $100 M | $10 M to $100 M | Local Coverage | Local (Selected Phone/Leaf-Let Notice) |
+| 1 | Negligible | Medical Treatment, Minor Health Effects, First Aid Case or Less | $0 to $10 M | $0 to $10M | $0 to $10M | No Outside Coverage | No Communication to Public |
+
+**Risk Bands (`matrix_risk_bands`):**
+
+| sort | band_label | band_name | score_min | score_max | colour_hex | short_description | full_description |
+|---|---|---|---|---|---|---|---|
+| 0 | IV | High | 17 | 25 | #CC0000 | High Risk | Manage risk utilizing prevention and/or mitigation with highest priority. Promote issue to appropriate management level with commensurate risk assessment detail. |
+| 1 | III | Significant | 10 | 16 | #FF6600 | Significant Risk | Manage risk utilizing prevention and/or mitigation with priority. Promote issue to appropriate management level with commensurate risk assessment detail. |
+| 2 | II | Medium | 5 | 9 | #FFCC00 | Medium Risk with Controls Verified | No mitigation required where controls can be verified as functional. ALARP should be evaluated, as necessary. |
+| 3 | I | Low | 1 | 4 | #00AA00 | Low Risk | No mitigation Required. |
+
+---
 
 ### ISO 31010 — 5×5
 
@@ -1080,7 +1163,14 @@ All level labels, likelihood scales, and risk band thresholds confirmed from *St
 | 4 | Likely | Expected regularly, e.g. several times a year |
 | 5 | Almost Certain | Occurs frequently, e.g. monthly or more |
 
-**Risk Bands:** Low 1–4 (Green), Moderate 5–9 (Yellow), High 10–15 (Orange), Extreme 16–25 (Red)
+**Risk Bands (`matrix_risk_bands`):**
+
+| sort | band_label | band_name | score_min | score_max | colour_hex | short_description | full_description |
+|---|---|---|---|---|---|---|---|
+| 0 | Extreme | Extreme | 16 | 25 | #CC0000 | Extreme Risk | Immediate action required. Do not proceed without senior management approval and implemented controls. |
+| 1 | High | High | 10 | 15 | #FF6600 | High Risk | Requires immediate corrective action and senior management attention. Implement controls before proceeding. |
+| 2 | Moderate | Moderate | 5 | 9 | #FFCC00 | Moderate Risk | Manage with specific monitoring and review procedures. Additional controls should be considered. |
+| 3 | Low | Low | 1 | 4 | #00AA00 | Low Risk | Manage through routine procedures. No additional controls required. |
 
 ---
 
@@ -1088,7 +1178,15 @@ All level labels, likelihood scales, and risk band thresholds confirmed from *St
 
 **Severity:** Negligible (1) → Minor → Moderate → Serious → Major → Catastrophic (6)
 **Likelihood:** Remote (1) → Unlikely → Possible → Likely → Frequent → Continuous (6)
-**Risk Bands:** Low 1–6 (Green), Medium 7–12 (Yellow), High 13–20 (Orange), Very High 21–36 (Red)
+
+**Risk Bands (`matrix_risk_bands`):**
+
+| sort | band_label | band_name | score_min | score_max | colour_hex | short_description | full_description |
+|---|---|---|---|---|---|---|---|
+| 0 | Very High | Very High | 21 | 36 | #CC0000 | Very High Risk | Unacceptable. Stop the activity. Immediate action to reduce risk required before proceeding. |
+| 1 | High | High | 13 | 20 | #FF6600 | High Risk | Requires immediate senior management attention. Implement additional controls before proceeding. |
+| 2 | Medium | Medium | 7 | 12 | #FFCC00 | Medium Risk | Manage with monitoring and review. Consider whether additional controls can reduce risk further (ALARP). |
+| 3 | Low | Low | 1 | 6 | #00AA00 | Low Risk | Acceptable. Manage through routine procedures. |
 
 ---
 
@@ -1096,7 +1194,15 @@ All level labels, likelihood scales, and risk band thresholds confirmed from *St
 
 **Severity:** Negligible (1) → Minor → Major → Hazardous → Catastrophic (5)
 **Likelihood:** Improbable (1) → Remote → Occasional → Probable → Frequent (5)
-**Risk Bands:** Acceptable 1–5 (Green), Acceptable with Review 6–10 (Yellow), Mitigation Required 11–15 (Orange), Unacceptable 16–25 (Red)
+
+**Risk Bands (`matrix_risk_bands`):**
+
+| sort | band_label | band_name | score_min | score_max | colour_hex | short_description | full_description |
+|---|---|---|---|---|---|---|---|
+| 0 | Unacceptable | Unacceptable | 16 | 25 | #CC0000 | Unacceptable Risk | Risk is intolerable regardless of benefits. Operations must not proceed. |
+| 1 | Mitigation Required | Significant | 11 | 15 | #FF6600 | Mitigation Required | Risk is tolerable only if risk reduction is impractical and with management approval. Mitigations must be implemented. |
+| 2 | Review | Moderate | 6 | 10 | #FFCC00 | Acceptable with Review | Acceptable based on cost-benefit analysis. Mitigations desirable if practical. |
+| 3 | Acceptable | Low | 1 | 5 | #00AA00 | Acceptable | Risk is negligible or acceptable. No immediate action required. |
 
 ---
 
@@ -1105,7 +1211,15 @@ All level labels, likelihood scales, and risk band thresholds confirmed from *St
 
 **Severity:** A=No Injury (1), B=Minor injury no LTI (2), C=Medical treatment/restricted duty (3), D=Fatality (4), E=Multiple fatalities (5)
 **Likelihood:** Very Rare <10⁻⁵/yr (1), Rare 10⁻⁵–10⁻⁴/yr (2), Occasional 10⁻⁴–10⁻³/yr (3), Likely 10⁻³–10⁻²/yr (4), Frequent >10⁻²/yr (5)
-**Risk Bands:** Low ≤5 (Green), Moderate 6–10 (Yellow/ALARP), High 11–20 (Orange), Intolerable >20 (Red)
+
+**Risk Bands (`matrix_risk_bands`):**
+
+| sort | band_label | band_name | score_min | score_max | colour_hex | short_description | full_description |
+|---|---|---|---|---|---|---|---|
+| 0 | Intolerable | Intolerable | 21 | 25 | #CC0000 | Intolerable Risk | Risk is unacceptable. Operations must not proceed. Immediate risk reduction required. |
+| 1 | High | High | 11 | 20 | #FF6600 | High Risk | Risk is not acceptable. Risk reduction measures must be implemented with priority. |
+| 2 | ALARP | Moderate | 6 | 10 | #FFCC00 | ALARP Zone | Risk should be reduced As Low As Reasonably Practicable. Document risk-reduction decisions. |
+| 3 | Low | Low | 1 | 5 | #00AA00 | Low Risk | Risk is broadly acceptable. Manage through standard procedures. |
 
 ---
 
@@ -1113,7 +1227,14 @@ All level labels, likelihood scales, and risk band thresholds confirmed from *St
 
 **Severity:** Negligible (1) → Minor → Moderate → Major → Catastrophic (5)
 **Likelihood:** Remote (1) → Unlikely → Possible → Likely → Frequent (5)
-**Risk Bands:** Broadly Acceptable 1–6 (Green), ALARP Zone 7–15 (Yellow), Unacceptable 16–25 (Red)
+
+**Risk Bands (`matrix_risk_bands`):**
+
+| sort | band_label | band_name | score_min | score_max | colour_hex | short_description | full_description |
+|---|---|---|---|---|---|---|---|
+| 0 | Unacceptable | Unacceptable | 16 | 25 | #CC0000 | Unacceptable Risk | Risk must be reduced regardless of cost. Operations must not continue until mitigations are in place. |
+| 1 | ALARP | ALARP | 7 | 15 | #FFCC00 | ALARP Zone | Risk is tolerable only if further reduction is impractical. Duty holder must demonstrate risk is ALARP. |
+| 2 | Acceptable | Acceptable | 1 | 6 | #00AA00 | Broadly Acceptable | Risk is broadly acceptable. No additional controls required beyond normal management. |
 
 ---
 
@@ -1121,7 +1242,14 @@ All level labels, likelihood scales, and risk band thresholds confirmed from *St
 
 **Severity:** Minor (1) → Moderate → Serious → Severe → Catastrophic (5)
 **Likelihood:** Rare (1), Occasional (2), Frequent (3)
-**Risk Bands:** Low 1–3 (Green), Medium 4–6 (Yellow), High 7–15 (Red)
+
+**Risk Bands (`matrix_risk_bands`):**
+
+| sort | band_label | band_name | score_min | score_max | colour_hex | short_description | full_description |
+|---|---|---|---|---|---|---|---|
+| 0 | High | High | 7 | 15 | #CC0000 | High Fire Risk | Immediate corrective action required. Implement additional prevention and suppression measures. |
+| 1 | Medium | Medium | 4 | 6 | #FFCC00 | Medium Fire Risk | Risk should be mitigated. Review controls and consider additional prevention measures. |
+| 2 | Low | Low | 1 | 3 | #00AA00 | Low Fire Risk | Risk is acceptable. Maintain standard fire safety procedures. |
 
 ---
 
@@ -1130,12 +1258,22 @@ All level labels, likelihood scales, and risk band thresholds confirmed from *St
 
 **Severity:** Negligible (1), Marginal (2), Critical (3), Catastrophic (4) — 4 levels
 **Likelihood:** Unlikely (1), Seldom (2), Occasional (3), Likely (4), Frequent (5) — 5 levels
-**Risk Bands:** Low (Green), Moderate (Yellow), High (Orange), Extremely High (Red)
-*`numeric_score` = NULL for all cells; `risk_category` and `colour_hex` set directly per cell.*
+
+**Risk Bands (`matrix_risk_bands`):** `score_min` and `score_max` are NULL for all bands; `risk_band_id` per cell is set by ordinal lookup.
+
+| sort | band_label | band_name | score_min | score_max | colour_hex | short_description | full_description |
+|---|---|---|---|---|---|---|---|
+| 0 | Extremely High | Extremely High | NULL | NULL | #CC0000 | Extremely High Risk | Risk is unacceptable. Mission/task/activity must not proceed. Immediate command authority decision required. |
+| 1 | High | High | NULL | NULL | #FF6600 | High Risk | Risk requires senior commander's decision. Implement additional controls or modify plan before proceeding. |
+| 2 | Medium | Medium | NULL | NULL | #FFCC00 | Medium Risk | Risk is acceptable with controls in place. Supervisor-level authority may approve. Continue with controls. |
+| 3 | Low | Low | NULL | NULL | #00AA00 | Low Risk | Risk is acceptable. Proceed using standard leader checks. |
+
+*`numeric_score` = NULL for all cells; `risk_band_id` set directly per cell via ordinal lookup.*
 
 ---
 
 *Plan created: 2026-04-07*
 *Schema updated: 2026-04-07 — multi-category consequence descriptions, flexible column model, and multiple controls per row added*
+*Schema updated: 2026-04-07 — `matrix_risk_bands` table added; two-descriptor pattern confirmed for likelihood, severity, and risk ranking; `exposure_description` and `exposed_assets` added to `assessment_rows`; Generic 5×5 (I–IV band) seed data added from reference images*
 *Industry matrix seed data confirmed: 2026-04-07*
 *Next step: Begin Phase 1, Milestone M1 — project scaffold.*
