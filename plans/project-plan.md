@@ -4,7 +4,7 @@
 **Brand family**: Smart Business
 **Host**: SiteGround GrowBig (shared hosting)
 **Plan Date**: 2026-04-07
-**Last Updated**: 2026-04-07 — schema updated after visual reference analysis; assessment table column model and multi-category consequence descriptions added
+**Last Updated**: 2026-04-07 — multiple controls per hazard row added (new `row_controls` table); full industry matrix seed data confirmed from PDF reference
 **Status**: Approved for development
 
 ---
@@ -169,11 +169,13 @@ All tables use PostgreSQL syntax. Primary keys are `SERIAL`. Timestamps are `TIM
 
 ### Key Design Decisions (from visual reference analysis)
 
-Two important additions were made to the schema after reviewing reference images of real-world risk assessments:
+Three important additions were made to the schema after reviewing reference images and the Standard Matrices PDF:
 
 1. **Multi-category consequence descriptions**: In professional risk matrices, a single severity level (e.g. "4") carries descriptions across *multiple consequence categories simultaneously* — Safety, Environmental Impact, Asset Damage, Business Interruption, etc. Two new tables (`matrix_consequence_categories` and `matrix_level_category_descriptions`) support this. The severity level label/dropdown remains simple, but the full consequence detail is available as a hover/reference panel.
 
 2. **Flexible assessment table columns**: Four distinct assessment table layouts exist in practice. All possible columns are stored in the `assessment_rows` table (all nullable). The active column set per assessment is stored as JSONB in `assessments.column_config`. Phase 1 uses four pre-set templates; Phase 2 adds free-form column selection.
+
+3. **Multiple controls per hazard row**: A single hazard routinely has several control measures associated with it — each potentially of a different type (Engineering, Administrative, PPE, etc.). Controls are NOT stored as text blobs in the row. Instead, each control is a separate record in the `row_controls` table, linked to its parent row and optionally to a `control_library` entry. This enables per-control typing, library linking, and future reporting on individual controls across assessments.
 
 ### Assessment Template Types
 
@@ -189,7 +191,7 @@ Four pre-set layouts derived from reference templates:
 ### Entity Relationship Summary
 
 ```
-users ──< assessments ──< assessment_rows
+users ──< assessments ──< assessment_rows ──< row_controls ──> control_library
   │              │
   │              └──> risk_matrices ──< matrix_consequence_categories
   │                         │                    │
@@ -209,6 +211,7 @@ CREATE TYPE matrix_axis        AS ENUM ('severity', 'likelihood');
 CREATE TYPE assessment_status  AS ENUM ('draft', 'in_review', 'approved', 'archived');
 CREATE TYPE share_permission   AS ENUM ('view', 'edit');
 CREATE TYPE assessment_template AS ENUM ('simple', 'simple_natural', 'detailed', 'detailed_natural');
+CREATE TYPE control_phase      AS ENUM ('existing', 'proposed');
 ```
 
 ### Table Definitions
@@ -341,6 +344,8 @@ The `template_type` enum sets sensible defaults; `column_config` allows per-asse
 
 One row per hazard being analysed. All optional columns are nullable — active columns are controlled by the parent assessment's `column_config`. Risk level fields are denormalised from `matrix_cells` to preserve values even if the matrix is later changed.
 
+**Controls are NOT stored here.** Each row has zero or more associated controls in the `row_controls` table, split by phase (existing / proposed). This allows multiple controls per hazard row with individual typing and library linkage.
+
 | Column | Type | Notes |
 |---|---|---|
 | `id` | SERIAL PRIMARY KEY | |
@@ -355,26 +360,38 @@ One row per hazard being analysed. All optional columns are nullable — active 
 | `natural_risk_category` | TEXT | Denormalised from matrix_cells |
 | `natural_colour_hex` | CHAR(7) | Denormalised |
 | `natural_risk_accept` | BOOLEAN | Accept Y/N for natural risk |
-| **Existing controls** | | |
-| `existing_controls_description` | TEXT | Description of controls already in place |
-| `existing_controls_type` | TEXT | Control type/classification (e.g. "Engineering", "Admin", "PPE") |
 | **Current risk** | | Risk after existing controls |
 | `severity_value` | SMALLINT | |
 | `likelihood_value` | SMALLINT | |
 | `risk_category` | TEXT | Denormalised |
 | `colour_hex` | CHAR(7) | Denormalised |
 | `current_risk_accept` | BOOLEAN | Accept Y/N for current risk |
-| **Proposed controls (optional)** | | Only used in "detailed" templates |
-| `proposed_controls_description` | TEXT | Recommended additional controls |
-| `proposed_controls_type` | TEXT | Control type classification |
-| **Residual risk (optional)** | | Risk after proposed controls |
+| **Residual risk (optional)** | | Risk after proposed controls — used in "detailed" templates |
 | `residual_severity_value` | SMALLINT | |
 | `residual_likelihood_value` | SMALLINT | |
 | `residual_risk_category` | TEXT | Denormalised |
 | `residual_colour_hex` | CHAR(7) | Denormalised |
 | `residual_risk_accept` | BOOLEAN | Accept Y/N for residual risk |
 | **Misc** | | |
-| `comments` | TEXT | Additional controls/comments catch-all |
+| `comments` | TEXT | Additional notes / catch-all comments |
+| `created_at` | TIMESTAMPTZ NOT NULL DEFAULT NOW() | |
+| `updated_at` | TIMESTAMPTZ NOT NULL DEFAULT NOW() | |
+
+#### `row_controls`
+
+**New table.** Each record is a single control measure associated with one hazard row. A row can have any number of controls, independently typed and ordered, for both the "existing controls" and "proposed controls" phases.
+
+This replaces the previous single `existing_controls_description` / `proposed_controls_description` text fields. Controls are loaded alongside their parent row in the editor and displayed as a compact list within the controls cell.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | SERIAL PRIMARY KEY | |
+| `assessment_row_id` | INTEGER NOT NULL REFERENCES assessment_rows(id) ON DELETE CASCADE | |
+| `phase` | control_phase NOT NULL | `existing` = already in place; `proposed` = recommended new control |
+| `description` | TEXT NOT NULL | The control measure description |
+| `control_type` | TEXT | Classification: "Engineering", "Administrative", "Substitution", "PPE", etc. |
+| `library_control_id` | INTEGER REFERENCES control_library(id) ON DELETE SET NULL | Optional: link back to the library entry it was sourced from |
+| `sort_order` | SMALLINT NOT NULL DEFAULT 0 | Display order within the row/phase |
 | `created_at` | TIMESTAMPTZ NOT NULL DEFAULT NOW() | |
 | `updated_at` | TIMESTAMPTZ NOT NULL DEFAULT NOW() | |
 
@@ -583,12 +600,18 @@ POST /assessments/{id}/share/{sid}/revoke → Revoke a share
 GET  /shared/{token}                → Public read-only assessment view (no login required)
 
 --- JSON API Endpoints ---
-GET    /api/assessments/{id}/rows           → Fetch all rows for an assessment
-POST   /api/assessments/{id}/rows           → Add a new blank row
-PUT    /api/assessments/{id}/rows/{rowId}   → Update a single row field
-DELETE /api/assessments/{id}/rows/{rowId}   → Delete a row
-POST   /api/assessments/{id}/rows/reorder   → Batch update sort_order after drag
-POST   /api/assessments/{id}/sync           → Flush full localStorage state to DB
+GET    /api/assessments/{id}/rows                        → Fetch all rows + their controls
+POST   /api/assessments/{id}/rows                        → Add a new blank row
+PUT    /api/assessments/{id}/rows/{rowId}                → Update a single row field
+DELETE /api/assessments/{id}/rows/{rowId}                → Delete a row (cascades to row_controls)
+POST   /api/assessments/{id}/rows/reorder                → Batch update sort_order after drag
+POST   /api/assessments/{id}/sync                        → Flush full localStorage state to DB
+
+GET    /api/rows/{rowId}/controls                        → Fetch controls for a row
+POST   /api/rows/{rowId}/controls                        → Add a control to a row
+PUT    /api/rows/{rowId}/controls/{controlId}            → Update a control
+DELETE /api/rows/{rowId}/controls/{controlId}            → Delete a control
+POST   /api/rows/{rowId}/controls/reorder                → Reorder controls within a row
 
 GET  /api/matrices/{id}                     → Full matrix data (levels + cells as JSON)
 GET  /api/matrices/{id}/cell?sev=X&lik=Y    → Return risk_category + colour_hex for a cell
@@ -691,11 +714,30 @@ GET  /admin/audit                   → Audit log viewer
 - Each row is a single expandable table row — on narrow screens, less-used columns collapse
 - The Risk Level cell (current, natural, and residual) is a full-colour block matching the matrix, showing the category text in a contrasting colour
 - **Accept Y/N** column renders as a large checkbox or toggle — visual at a glance
-- Severity/Likelihood dropdowns: hovering the dropdown shows a tooltip with that level's consequence category descriptions (e.g. "Safety: Fatality… / Environmental: >$10MM…")
+- Severity/Likelihood dropdowns: hovering shows a tooltip with that level's consequence category descriptions (e.g. "Safety: Fatality… / Environmental: >$10MM…")
 - Inline editing: click any cell to edit in-place — no modal dialogs
 - Drag handle (`≡`) on the left for row reordering
 - Risk Level cell updates in real time as severity/likelihood dropdowns change
-- Auto-complete appears below text fields as a dropdown when typing
+
+**Multiple Controls per Row:**
+- The "Existing Controls" and "Proposed Controls" cells each display a compact numbered list of controls
+- Compact view (collapsed): shows first 1–2 controls + "…+N more" chip
+- Click the cell to expand an **inline controls editor**:
+  ```
+  Existing Controls:
+  ┌─────────────────────────────────────────────┐
+  │ 1. [Machine guard installed ............] [Engineering ▼] [×] │
+  │ 2. [Permit to work procedure ............] [Admin ▼]      [×] │
+  │ 3. [Hard hat mandatory ..................] [PPE ▼]         [×] │
+  │    [+ Add control]                                              │
+  └─────────────────────────────────────────────┘
+  ```
+- Each control line has: description field (auto-complete from library), type dropdown (Engineering / Administrative / Substitution / PPE / Elimination / Other), and a remove button
+- "Add control" appends a new blank line at the bottom
+- Controls can be reordered by drag within the expanded cell
+- Auto-complete on the description field searches the control library and pre-fills type if available
+- "Save to library" icon on any control line to add it to the personal library
+- The expanded editor closes and re-compacts when focus leaves the cell
 
 #### Matrix Builder
 
@@ -763,6 +805,7 @@ riskasm/
 │   │   ├── DashboardController.php     ← Dashboard page
 │   │   ├── AssessmentController.php    ← Assessment CRUD, status, copy
 │   │   ├── AssessmentRowApiController.php ← JSON API for row add/edit/delete/reorder/sync
+│   │   ├── RowControlApiController.php ← JSON API for per-row controls (add/edit/delete/reorder)
 │   │   ├── MatrixController.php        ← Matrix CRUD, builder, clone
 │   │   ├── MatrixApiController.php     ← JSON API for matrix data and cell lookups
 │   │   ├── LibraryController.php       ← Library browser pages
@@ -823,20 +866,28 @@ riskasm/
 │   │   ├── 001_create_types.sql                    ← PostgreSQL ENUM type definitions
 │   │   ├── 002_create_users.sql
 │   │   ├── 003_create_risk_matrices.sql
-│   │   ├── 004_create_matrix_consequence_categories.sql  ← NEW: multi-category severity
+│   │   ├── 004_create_matrix_consequence_categories.sql
 │   │   ├── 005_create_matrix_levels.sql
-│   │   ├── 006_create_matrix_level_category_descriptions.sql ← NEW: per-category descriptions
+│   │   ├── 006_create_matrix_level_category_descriptions.sql
 │   │   ├── 007_create_matrix_cells.sql
-│   │   ├── 008_create_assessments.sql              ← includes template_type + column_config
-│   │   ├── 009_create_assessment_rows.sql           ← full column set (all nullable)
-│   │   ├── 010_create_hazard_library.sql
-│   │   ├── 011_create_control_library.sql
-│   │   ├── 012_create_assessment_shares.sql
-│   │   └── 013_create_audit_log.sql
+│   │   ├── 008_create_assessments.sql              ← includes template_type + column_config JSONB
+│   │   ├── 009_create_assessment_rows.sql           ← risk columns only; no control text fields
+│   │   ├── 010_create_row_controls.sql              ← NEW: multiple controls per row
+│   │   ├── 011_create_hazard_library.sql
+│   │   ├── 012_create_control_library.sql           ← includes control_type field
+│   │   ├── 013_create_assessment_shares.sql
+│   │   └── 014_create_audit_log.sql
 │   └── seeds/
-│       ├── system_matrices.sql         ← 3×3, 4×4, 5×5 + 7 industry standards (ISO 31010,
-│       │                                  Oil&Gas Shell/BP, FAA/ICAO, NORSOK Z-013,
-│       │                                  HSE UK Offshore, NFPA Fire, U.S. Army)
+│       ├── system_matrices.sql         ← 3×3 generic, 4×4 generic, 5×5 generic, plus:
+│       │                                  ISO 31010 (5×5), Oil & Gas Shell/BP (6×6),
+│       │                                  FAA/ICAO (5×5), NORSOK Z-013 (5×5, A–E severity),
+│       │                                  HSE UK Offshore (5×5), NFPA Fire (3×5),
+│       │                                  U.S. Army ATP 5-19 (5×4 ordinal)
+│       │                                  All level labels, likelihood scales, and risk band
+│       │                                  thresholds confirmed from Standard Matrices PDF.
+│       │                                  Note: NORSOK uses letter labels (A–E) mapped to
+│       │                                  level_value 1–5. U.S. Army uses ordinal bands
+│       │                                  (no numeric score); numeric_score = NULL.
 │       └── sample_hazard_library.sql   ← Starter global hazard/control entries
 │
 ├── vendor/                             ← Composer dependencies (gitignored)
@@ -1001,9 +1052,90 @@ All open questions from initial planning have been resolved. This table document
 | 7 | **Multiple consequence categories per severity level** | **Add to schema now** (`matrix_consequence_categories` + `matrix_level_category_descriptions` tables) | Severity levels in real risk work carry descriptions across multiple dimensions (Safety, Environmental, Financial, etc.). Schema change is cheap pre-code; expensive post-code. UI for display is Phase 1; UI for editing is Phase 2. |
 | 8 | **Flexible assessment table columns** | **Full column set in schema now; pre-set template types in Phase 1 UI; free-form column picker in Phase 2** | Four real-world table layouts identified (Simple, Simple+Natural, Detailed, Detailed+Natural). All columns stored nullable in `assessment_rows`; active set controlled by `column_config` JSONB. Phase 1 offers 4 presets; Phase 2 adds free-form toggles. |
 | 9 | **Industry-standard matrix seeds** | **Seed all 10 system matrices** (3 generic + 7 industry: ISO 31010, Oil & Gas Shell/BP, FAA/ICAO, NORSOK Z-013, HSE UK Offshore, NFPA Fire, U.S. Army) | Saves users from building common matrices from scratch; demonstrates the system's breadth immediately. |
+| 10 | **Multiple controls per hazard row** | **Separate `row_controls` table** (not text blobs in the row) | A single hazard routinely has multiple controls of different types. A relational table enables per-control typing, library linkage, individual reordering, and future reporting. Text blob approach rejected. |
+
+---
+
+## Appendix A — Confirmed Industry Matrix Seed Data
+
+All level labels, likelihood scales, and risk band thresholds confirmed from *Standard Matrices.pdf*.
+
+### ISO 31010 — 5×5
+
+**Severity (Consequence):**
+| Value | Label | Description |
+|---|---|---|
+| 1 | Insignificant | No injuries, negligible loss, no impact to objectives |
+| 2 | Minor | First aid needed, minor disruption or damage |
+| 3 | Moderate | Injury with lost time, moderate cost or impact |
+| 4 | Major | Single serious injury or large impact on budget/schedule |
+| 5 | Catastrophic | Death or major system failure, permanent consequences |
+
+**Likelihood:**
+| Value | Label | Description |
+|---|---|---|
+| 1 | Rare | Happens only in exceptional circumstances (5+ years) |
+| 2 | Unlikely | Not expected but possible in 1–5 years |
+| 3 | Possible | Might occur occasionally, such as once a year |
+| 4 | Likely | Expected regularly, e.g. several times a year |
+| 5 | Almost Certain | Occurs frequently, e.g. monthly or more |
+
+**Risk Bands:** Low 1–4 (Green), Moderate 5–9 (Yellow), High 10–15 (Orange), Extreme 16–25 (Red)
+
+---
+
+### Oil & Gas Shell/BP — 6×6
+
+**Severity:** Negligible (1) → Minor → Moderate → Serious → Major → Catastrophic (6)
+**Likelihood:** Remote (1) → Unlikely → Possible → Likely → Frequent → Continuous (6)
+**Risk Bands:** Low 1–6 (Green), Medium 7–12 (Yellow), High 13–20 (Orange), Very High 21–36 (Red)
+
+---
+
+### FAA / ICAO Aviation — 5×5
+
+**Severity:** Negligible (1) → Minor → Major → Hazardous → Catastrophic (5)
+**Likelihood:** Improbable (1) → Remote → Occasional → Probable → Frequent (5)
+**Risk Bands:** Acceptable 1–5 (Green), Acceptable with Review 6–10 (Yellow), Mitigation Required 11–15 (Orange), Unacceptable 16–25 (Red)
+
+---
+
+### NORSOK Z-013 — 5×5
+*(Severity uses letter labels A–E mapped to level_value 1–5)*
+
+**Severity:** A=No Injury (1), B=Minor injury no LTI (2), C=Medical treatment/restricted duty (3), D=Fatality (4), E=Multiple fatalities (5)
+**Likelihood:** Very Rare <10⁻⁵/yr (1), Rare 10⁻⁵–10⁻⁴/yr (2), Occasional 10⁻⁴–10⁻³/yr (3), Likely 10⁻³–10⁻²/yr (4), Frequent >10⁻²/yr (5)
+**Risk Bands:** Low ≤5 (Green), Moderate 6–10 (Yellow/ALARP), High 11–20 (Orange), Intolerable >20 (Red)
+
+---
+
+### HSE UK Offshore — 5×5
+
+**Severity:** Negligible (1) → Minor → Moderate → Major → Catastrophic (5)
+**Likelihood:** Remote (1) → Unlikely → Possible → Likely → Frequent (5)
+**Risk Bands:** Broadly Acceptable 1–6 (Green), ALARP Zone 7–15 (Yellow), Unacceptable 16–25 (Red)
+
+---
+
+### NFPA Fire — 3×5 *(Severity 5 rows, Likelihood 3 columns; score = S×L, max 15)*
+
+**Severity:** Minor (1) → Moderate → Serious → Severe → Catastrophic (5)
+**Likelihood:** Rare (1), Occasional (2), Frequent (3)
+**Risk Bands:** Low 1–3 (Green), Medium 4–6 (Yellow), High 7–15 (Red)
+
+---
+
+### U.S. Army ATP 5-19 — 5×4 ordinal
+*(No numeric score — risk band assigned by ordinal lookup table)*
+
+**Severity:** Negligible (1), Marginal (2), Critical (3), Catastrophic (4) — 4 levels
+**Likelihood:** Unlikely (1), Seldom (2), Occasional (3), Likely (4), Frequent (5) — 5 levels
+**Risk Bands:** Low (Green), Moderate (Yellow), High (Orange), Extremely High (Red)
+*`numeric_score` = NULL for all cells; `risk_category` and `colour_hex` set directly per cell.*
 
 ---
 
 *Plan created: 2026-04-07*
-*Schema updated: 2026-04-07 — multi-category consequence descriptions and flexible column model added*
+*Schema updated: 2026-04-07 — multi-category consequence descriptions, flexible column model, and multiple controls per row added*
+*Industry matrix seed data confirmed: 2026-04-07*
 *Next step: Begin Phase 1, Milestone M1 — project scaffold.*
