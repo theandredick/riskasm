@@ -4,7 +4,7 @@
 **Brand family**: Smart Business
 **Host**: SiteGround GrowBig (shared hosting)
 **Plan Date**: 2026-04-07
-**Last Updated**: 2026-04-07 — `matrix_risk_bands` table added (risk band descriptions); `exposure_description` and `exposed_assets` columns added to `assessment_rows`; two-descriptor pattern confirmed for likelihood, severity, and risk ranking
+**Last Updated**: 2026-04-07 — Phase 0 environment setup added (Homebrew PHP 8.2, PostgreSQL 14, rsync deploy script, health check endpoint); deployment strategy updated from Git integration to `deploy.sh` rsync-over-SSH
 **Status**: Approved for development
 
 ---
@@ -951,6 +951,28 @@ riskasm/
 
 ## 9. Development Phases & Milestones
 
+### Phase 0 — Environment & Scaffold Setup (Target: 1 day)
+
+| # | Milestone | Deliverables |
+|---|---|---|
+| P0.1 | **Local PHP Install** | PHP 8.2 via Homebrew; Composer installed globally; `php -v` and `composer -V` verified |
+| P0.2 | **Git Setup** | `.gitignore` covering `vendor/`, `.env`, `uploads/`, `*.log`; `develop` branch created from `main`; `change-log.md` stub added |
+| P0.3 | **Project Scaffold** | Full folder structure from Section 8 created; all directories and key stub files in place |
+| P0.4 | **Composer & Dependencies** | `composer.json` with mPDF, PhpSpreadsheet, PHPMailer, phpdotenv; `composer install` run locally |
+| P0.5 | **Environment Config** | `.env.example` with all required keys (no values); local `.env` created and filled; `.env` never committed |
+| P0.6 | **Database Migrations** | All 15 SQL migration files written (matching Section 4 schema); `database/migrate.php` runner script created |
+| P0.7 | **Local DB Setup** | Local PostgreSQL 14 database `riskasm` created; migrations applied; PDO connection verified |
+| P0.8 | **Health Check Route** | `/healthcheck` route in stub `public/index.php`; returns JSON with PHP version, DB connection status, and env mode |
+| P0.9 | **Local Verification** | `php -S localhost:10000 -t public/` running; `http://localhost:10000/healthcheck` returns all-green JSON |
+| P0.10 | **SiteGround Config** | Document root pointed to `public/`; PHP 8.2 selected in PHP Manager; PostgreSQL 14 credentials confirmed |
+| P0.11 | **Deploy Script** | `deploy.sh` rsync-over-SSH script created and executable; first deploy run; `vendor/`, `.env`, `.git/` excluded |
+| P0.12 | **Remote Setup** | Production `.env` created on server via SSH; `composer install --no-dev --optimize-autoloader` run on server; migrations applied via `php database/migrate.php` |
+| P0.13 | **Remote Verification** | `https://temp-domain/healthcheck` returns all-green JSON |
+
+**Phase 0 complete = both local and SiteGround environments are verified and ready for Phase 1 development.**
+
+---
+
 ### Phase 1 — Foundation / MVP (Target: 4–5 weeks)
 
 | # | Milestone | Deliverables |
@@ -1012,19 +1034,24 @@ See Section 12.
 
 ### Local Development Environment
 
-- PHP 8.2 via MAMP, Laravel Herd, or `php -S localhost:10000 -t public/`
-- PostgreSQL 16 locally, schema matches production
+- **PHP 8.2** installed via **Homebrew** (`brew install php@8.2`); Composer installed globally
+- **PostgreSQL 14** locally (already installed) — matches SiteGround's PostgreSQL 14; no version mismatch
+- Local DB managed via pgAdmin 4 or SQL Pro Studio; migrations run via `php database/migrate.php`
 - `.env` with local DB credentials (never committed)
-- Composer for PHP dependencies
+- Dev server: `php -S localhost:10000 -t public/`
 
 ### SiteGround GrowBig Setup
 
-- PostgreSQL database already provisioned on SiteGround with **admin user** and **test user**
+- PostgreSQL 14 database already provisioned on SiteGround with **admin user** and **test user**
 - Set document root to the `public/` subdirectory in SiteGround Site Tools → Domain Manager
 - PHP version: set to 8.2 in SiteGround's PHP Manager
-- Deploy via SiteGround Git integration (push to remote triggers deploy) or SFTP
-- Run migrations manually via SSH (`psql`) on first deploy and after each migration addition
-- Configure `.env` on the server with production values (`APP_ENV=production`, `APP_DEBUG=false`, DB credentials, MXroute SMTP credentials)
+- **Deployment: `deploy.sh` — rsync over SSH** (Git integration not included in the current SiteGround plan)
+  - `deploy.sh` in the project root syncs all changed files in one command
+  - Automatically excludes `.env`, `vendor/`, `uploads/`, `.git/`, `*.log`
+  - `vendor/` is installed on the server once with `composer install --no-dev` and not re-synced unless `composer.json` changes
+- Production `.env` created directly on the server via SSH (never synced from local)
+- Run migrations on the server via SSH: `php database/migrate.php`
+- App URL is driven by `APP_URL` in `.env` — switching from the temporary domain to the final domain requires only a `.env` change
 - Cron job (SiteGround's cron manager): daily run of `php /path/to/public/index.php cron:review-reminders`
 
 ### MXroute Email Configuration (.env keys)
@@ -1044,7 +1071,7 @@ MAIL_ENCRYPTION=tls
 - `main` branch = production-ready code
 - `develop` branch = integration branch
 - Feature branches per milestone (e.g. `feature/m5-editor`, `feature/m8-library`)
-- Deploy to production: merge `develop` → `main`, pull on server
+- Deploy to production: merge `develop` → `main`, then run `./deploy.sh` from the project root
 
 ### Composer Dependencies (planned)
 
@@ -1276,4 +1303,4 @@ This is the style shown in the reference images supplied by the client. It is se
 *Schema updated: 2026-04-07 — multi-category consequence descriptions, flexible column model, and multiple controls per row added*
 *Schema updated: 2026-04-07 — `matrix_risk_bands` table added; two-descriptor pattern confirmed for likelihood, severity, and risk ranking; `exposure_description` and `exposed_assets` added to `assessment_rows`; Generic 5×5 (I–IV band) seed data added from reference images*
 *Industry matrix seed data confirmed: 2026-04-07*
-*Next step: Begin Phase 1, Milestone M1 — project scaffold.*
+*Next step: Begin Phase 0, Milestone P0.1 — install PHP 8.2 via Homebrew.*
