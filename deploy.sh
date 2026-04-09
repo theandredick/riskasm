@@ -6,12 +6,26 @@
 # Excludes: .env, vendor/, uploads/, .git/, *.log
 #
 # Usage:
-#   ./deploy.sh             — deploy to production
-#   ./deploy.sh --dry-run   — preview changes without transferring files
+#   ./deploy.sh                  — deploy to production
+#   ./deploy.sh --dry-run        — preview changes without transferring files
+#   ./deploy.sh --first-deploy   — deploy + remove SiteGround's default.html placeholder
+#   ./deploy.sh --upload-env     — SCP .env.production to server as .env (run once per server)
 #
 # Prerequisites:
-#   - SSH key already added to SiteGround Site Tools → SSH Keys
-#   - DEPLOY_SSH_USER, DEPLOY_SSH_HOST, DEPLOY_REMOTE_PATH set in .env
+#   - SSH key added to SiteGround Site Tools → Security → SSH Keys
+#   - DEPLOY_SSH_USER, DEPLOY_SSH_HOST, DEPLOY_REMOTE_PATH set in local .env
+#
+# SiteGround folder layout:
+#   DEPLOY_REMOTE_PATH/              ← deploy root (NOT web-accessible)
+#   ├── public_html/                 ← fixed document root (web-accessible)
+#   │   ├── index.php
+#   │   ├── .htaccess
+#   │   └── assets/
+#   ├── src/
+#   ├── templates/
+#   ├── vendor/
+#   ├── database/
+#   └── .env                         ← created via --upload-env, never via rsync
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -31,21 +45,51 @@ SSH_HOST="${DEPLOY_SSH_HOST:?DEPLOY_SSH_HOST must be set in .env}"
 REMOTE_PATH="${DEPLOY_REMOTE_PATH:?DEPLOY_REMOTE_PATH must be set in .env}"
 
 DRY_RUN=""
-if [[ "${1:-}" == "--dry-run" ]]; then
-    DRY_RUN="--dry-run"
-    echo "⚠️   DRY RUN — no files will be transferred."
+FIRST_DEPLOY=false
+UPLOAD_ENV=false
+
+for arg in "$@"; do
+    case "$arg" in
+        --dry-run)      DRY_RUN="--dry-run" ;;
+        --first-deploy) FIRST_DEPLOY=true ;;
+        --upload-env)   UPLOAD_ENV=true ;;
+    esac
+done
+
+REMOTE="${SSH_USER}@${SSH_HOST}"
+
+# ── Upload production .env ────────────────────────────────────────────────────
+if [[ "$UPLOAD_ENV" == true ]]; then
+    if [[ ! -f "$SCRIPT_DIR/.env.production" ]]; then
+        echo "❌  .env.production not found in project root."
+        echo "    Create it from .env.example and fill in production values first."
+        exit 1
+    fi
+    echo ""
+    echo "📤  Uploading .env.production → ${REMOTE}:${REMOTE_PATH}/.env"
+    scp -o StrictHostKeyChecking=no \
+        "$SCRIPT_DIR/.env.production" \
+        "${REMOTE}:${REMOTE_PATH}/.env"
+    echo "✅  Production .env uploaded."
+    echo "    Verify: ssh ${REMOTE} 'ls -la ${REMOTE_PATH}/.env'"
+    echo ""
+    exit 0
 fi
 
-REMOTE="${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}"
+# ── Sync files ────────────────────────────────────────────────────────────────
+if [[ -n "$DRY_RUN" ]]; then
+    echo "⚠️   DRY RUN — no files will be transferred."
+fi
 
 echo ""
 echo "🚀  Deploying Smart Risk Assessment"
 echo "    Source : $SCRIPT_DIR"
-echo "    Target : $REMOTE"
+echo "    Target : ${REMOTE}:${REMOTE_PATH}"
 echo ""
 
 rsync -avz --progress $DRY_RUN \
     --exclude='.env' \
+    --exclude='.env.*' \
     --exclude='.git/' \
     --exclude='.gitignore' \
     --exclude='vendor/' \
@@ -57,21 +101,41 @@ rsync -avz --progress $DRY_RUN \
     --exclude='deploy.sh' \
     --exclude='venv/' \
     --exclude='plans/' \
+    --exclude='DEPLOYMENT.md' \
     -e "ssh -o StrictHostKeyChecking=no" \
     "$SCRIPT_DIR/" \
-    "$REMOTE/"
+    "${REMOTE}:${REMOTE_PATH}/"
 
 echo ""
+
 if [[ -z "$DRY_RUN" ]]; then
+    # ── First-deploy cleanup ──────────────────────────────────────────────────
+    if [[ "$FIRST_DEPLOY" == true ]]; then
+        echo "🧹  First-deploy: removing SiteGround placeholder file..."
+        ssh -o StrictHostKeyChecking=no "${REMOTE}" \
+            "rm -f '${REMOTE_PATH}/public_html/default.html'" \
+            && echo "    Removed default.html (or it was already gone)."
+        echo ""
+    fi
+
     echo "✅  Deploy complete."
     echo ""
     echo "📋  Post-deploy checklist:"
-    echo "    1. Verify production .env exists on server: ssh ${SSH_USER}@${SSH_HOST} 'ls ${REMOTE_PATH}/.env'"
-    echo "    2. Run composer on server (if composer.json changed):"
-    echo "       ssh ${SSH_USER}@${SSH_HOST} 'cd ${REMOTE_PATH} && composer install --no-dev --optimize-autoloader'"
-    echo "    3. Apply any new migrations:"
-    echo "       ssh ${SSH_USER}@${SSH_HOST} 'cd ${REMOTE_PATH} && php database/migrate.php'"
-    echo "    4. Verify health check: curl https://YOUR_DOMAIN/healthcheck"
+    echo "    1. Verify .env exists on server:"
+    echo "       ssh ${REMOTE} 'ls -la ${REMOTE_PATH}/.env'"
+    echo "       (If missing, run: ./deploy.sh --upload-env)"
+    echo ""
+    echo "    2. Install/update Composer dependencies on server (if composer.json changed):"
+    echo "       ssh ${REMOTE} 'cd ${REMOTE_PATH} && composer install --no-dev --optimize-autoloader'"
+    echo ""
+    echo "    3. Apply any new migrations (uses admin DB user):"
+    echo "       ssh ${REMOTE} 'cd ${REMOTE_PATH} && php database/migrate.php'"
+    echo ""
+    echo "    4. Verify health check (tests PHP + DB connection):"
+    echo "       curl https://andred19.sg-host.com/healthcheck"
+    echo ""
+    echo "    5. Check PHP error log if anything looks wrong:"
+    echo "       ssh ${REMOTE} 'tail -50 ${REMOTE_PATH}/../logs/php_error.log 2>/dev/null || echo no log found'"
 else
     echo "✅  Dry run complete. Run without --dry-run to deploy."
 fi
