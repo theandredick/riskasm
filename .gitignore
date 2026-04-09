@@ -1,0 +1,35 @@
+# Composer dependencies
+/vendor/
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Uploads (user logos, etc.)
+/uploads/
+
+# Logs
+*.log
+/logs/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# PHPUnit / test artifacts
+.phpunit.result.cache
+/coverage/
+
+# Node (if any tooling)
+node_modules/
+
+# Build artifacts
+/dist/

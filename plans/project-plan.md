@@ -808,7 +808,7 @@ GET  /admin/audit                   → Audit log viewer
 ```
 riskasm/
 │
-├── public/                             ← Web root (SiteGround document root points here)
+├── public_html/                        ← Web root (SiteGround's fixed document root — matches public_html/ on server)
 │   ├── index.php                       ← Front controller / router entry point
 │   ├── .htaccess                       ← Apache URL rewrite rules
 │   └── assets/
@@ -941,11 +941,19 @@ riskasm/
 │   └── project-plan.md                 ← This document
 │
 ├── .env                                ← Local secrets (gitignored)
+├── .env.production                     ← Production secrets (gitignored) — SCP to server as .env
 ├── .env.example                        ← Template with all required keys, no values
 ├── .gitignore
 ├── readme.md
+├── DEPLOYMENT.md                       ← Step-by-step install guide for local + SiteGround
 └── change-log.md
 ```
+
+> **SiteGround document root note:** SiteGround shared hosting (GrowBig) uses a fixed document root of
+> `public_html/` inside each domain folder. The folder above `public_html/` (the deploy root) is NOT
+> web-accessible — this is where `.env`, `src/`, `vendor/`, `templates/`, and `database/` live safely.
+> Never place secrets inside `public_html/`. The `APP_ROOT` in `index.php` resolves to the deploy root
+> via `dirname(__DIR__)`, giving PHP access to all app files without exposing them to the web.
 
 ---
 
@@ -1038,21 +1046,22 @@ See Section 12.
 - **PostgreSQL 14** locally (already installed) — matches SiteGround's PostgreSQL 14; no version mismatch
 - Local DB managed via pgAdmin 4 or SQL Pro Studio; migrations run via `php database/migrate.php`
 - `.env` with local DB credentials (never committed)
-- Dev server: `php -S localhost:10000 -t public/`
+- Dev server: `php -S localhost:10000 -t public_html/`
 
 ### SiteGround GrowBig Setup
 
-- PostgreSQL 14 database already provisioned on SiteGround with **admin user** and **test user**
-- Set document root to the `public/` subdirectory in SiteGround Site Tools → Domain Manager
+- PostgreSQL 14 database already provisioned on SiteGround with **admin user** (`ujhhzc8mu3pzm`) and **restricted app user** (`ulwbc2gyp5hih`)
+- **Document root is fixed at `public_html/`** — no Site Tools change required. The deploy root (`DEPLOY_REMOTE_PATH`) is the folder *above* `public_html/`; non-web files (`src/`, `vendor/`, `.env`, etc.) live there and are never browser-accessible.
 - PHP version: set to 8.2 in SiteGround's PHP Manager
 - **Deployment: `deploy.sh` — rsync over SSH** (Git integration not included in the current SiteGround plan)
   - `deploy.sh` in the project root syncs all changed files in one command
   - Automatically excludes `.env`, `vendor/`, `uploads/`, `.git/`, `*.log`
   - `vendor/` is installed on the server once with `composer install --no-dev` and not re-synced unless `composer.json` changes
-- Production `.env` created directly on the server via SSH (never synced from local)
-- Run migrations on the server via SSH: `php database/migrate.php`
-- App URL is driven by `APP_URL` in `.env` — switching from the temporary domain to the final domain requires only a `.env` change
-- Cron job (SiteGround's cron manager): daily run of `php /path/to/public/index.php cron:review-reminders`
+  - First deploy: run `./deploy.sh --first-deploy` to also remove SiteGround's `default.html` placeholder
+- Production `.env` uploaded via `scp .env.production user@host:/path/.env` (never synced by rsync or committed to git)
+- Run migrations on the server via SSH: `php database/migrate.php` (uses admin DB user)
+- App URL is driven by `APP_URL` in `.env` — switching domains requires only a server-side `.env` update
+- Cron job (SiteGround's cron manager): daily run of `php /path/to/public_html/index.php cron:review-reminders`
 
 ### MXroute Email Configuration (.env keys)
 
