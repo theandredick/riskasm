@@ -1046,7 +1046,7 @@ See Section 12.
 - **PostgreSQL 14** locally (already installed) — matches SiteGround's PostgreSQL 14; no version mismatch
 - Local DB managed via pgAdmin 4 or SQL Pro Studio; migrations run via `php database/migrate.php`
 - `.env` with local DB credentials (never committed)
-- Dev server: `php -S localhost:10000 -t public_html/`
+- Dev server: `php -S localhost:10000 -t public_html/ public_html/index.php`
 
 ### SiteGround GrowBig Setup
 

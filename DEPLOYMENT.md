@@ -71,7 +71,9 @@ DB_USER=<admin_user> DB_PASSWORD=<password> php database/migrate.php
 ### 1.4 Start the Dev Server
 
 ```bash
-php -S localhost:10000 -t public_html/
+# -t sets the document root; the last argument is the router script
+# (required for clean URLs like /healthcheck to work on the built-in server)
+php -S localhost:10000 -t public_html/ public_html/index.php
 ```
 
 Verify: open http://localhost:10000/healthcheck — you should see:

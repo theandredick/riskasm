@@ -2,6 +2,15 @@
 
 declare(strict_types=1);
 
+// ── PHP built-in dev server: serve static files (CSS, JS, images) directly ──
+// Apache on production uses .htaccess instead; this block is dev-only.
+if (PHP_SAPI === 'cli-server') {
+    $staticPath = __DIR__ . parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+    if (is_file($staticPath)) {
+        return false;
+    }
+}
+
 define('APP_ROOT', dirname(__DIR__));
 define('APP_START', microtime(true));
 

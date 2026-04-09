@@ -25,8 +25,8 @@ cp .env.example .env
 createdb riskasm
 php database/migrate.php
 
-# Start dev server (web root is public_html/)
-php -S localhost:10000 -t public_html/
+# Start dev server — -t sets the document root, index.php is the router script
+php -S localhost:10000 -t public_html/ public_html/index.php
 ```
 
 Health check: http://localhost:10000/healthcheck
