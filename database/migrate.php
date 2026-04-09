@@ -18,19 +18,27 @@ require APP_ROOT . '/vendor/autoload.php';
 $dotenv = Dotenv\Dotenv::createImmutable(APP_ROOT);
 $dotenv->safeLoad();
 
-// ── DB connection ──────────────────────────────────────────────────────────────
+// ── DB connection ─────────────────────────────────────────────────────────────
+// Use $_ENV first (set by phpdotenv), fall back to getenv() for command-line
+// overrides (e.g. DB_USER=admin php database/migrate.php) which may not
+// populate $_ENV on some shared hosting PHP configurations.
+function env(string $key, string $default = ''): string
+{
+    return $_ENV[$key] ?? (getenv($key) ?: $default);
+}
+
 $dsn = sprintf(
     'pgsql:host=%s;port=%s;dbname=%s',
-    $_ENV['DB_HOST']     ?? 'localhost',
-    $_ENV['DB_PORT']     ?? '5432',
-    $_ENV['DB_NAME']     ?? 'riskasm'
+    env('DB_HOST', 'localhost'),
+    env('DB_PORT', '5432'),
+    env('DB_NAME', 'riskasm')
 );
 
 try {
     $pdo = new PDO(
         $dsn,
-        $_ENV['DB_USER']     ?? '',
-        $_ENV['DB_PASSWORD'] ?? '',
+        env('DB_USER'),
+        env('DB_PASSWORD'),
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
 } catch (PDOException $e) {
