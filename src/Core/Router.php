@@ -60,7 +60,7 @@ class Router
 
         $controller = new $fqcn();
 
-        if (!method_exists($controller, $method)) {
+        if (!method_exists($controller, $method) && !method_exists($controller, '__call')) {
             return Response::notFound('Method not found: ' . $method);
         }
 
