@@ -123,9 +123,10 @@ if [[ -z "$DRY_RUN" ]]; then
     # ── First-deploy cleanup ──────────────────────────────────────────────────
     if [[ "$FIRST_DEPLOY" == true ]]; then
         echo "🧹  First-deploy: removing SiteGround placeholder file..."
+        # SiteGround creates 'Default.html' (capital D) on Linux; remove both variants
         ssh ${SSH_OPTS} "${REMOTE}" \
-            "rm -f '${REMOTE_PATH}/public_html/default.html'" \
-            && echo "    Removed default.html (or it was already gone)."
+            "rm -f '${REMOTE_PATH}/public_html/default.html' '${REMOTE_PATH}/public_html/Default.html'" \
+            && echo "    Removed default.html / Default.html (or they were already gone)."
         echo ""
     fi
 
