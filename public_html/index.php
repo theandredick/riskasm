@@ -48,6 +48,10 @@ if ($requestPath === '/healthcheck') {
 // ── Bootstrap application ─────────────────────────────────────────────────────
 require APP_ROOT . '/src/Config/config.php';
 
+// Restore session from remember-me cookie when no active session exists
+App\Core\Session::start();
+App\Controllers\AuthController::bootRememberMe();
+
 $router = new App\Core\Router();
 require APP_ROOT . '/src/Config/routes.php';
 

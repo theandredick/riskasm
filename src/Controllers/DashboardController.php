@@ -6,12 +6,19 @@ namespace App\Controllers;
 
 use App\Core\Request;
 use App\Core\Response;
+use App\Helpers\View;
+use App\Middleware\AuthMiddleware;
 
-/** Stub — implemented in Phase 1. */
 class DashboardController
 {
-    public function __call(string $name, array $args): Response
+    public function index(Request $request): Response
     {
-        return Response::html('<p>🚧 ' . static::class . '::' . $name . ' — coming in Phase 1.</p>');
+        if ($guard = AuthMiddleware::require($request)) {
+            return $guard;
+        }
+
+        return Response::html(View::render('dashboard/index', [
+            'pageTitle' => 'Dashboard',
+        ]));
     }
 }

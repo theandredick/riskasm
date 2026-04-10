@@ -1,0 +1,77 @@
+/* ── Smart Risk Assessment — Custom Styles ──────────────────────────────────── */
+
+/* Auth layout */
+.auth-layout {
+    background-color: #f5f5f5;
+    min-height: 100vh;
+}
+
+.auth-layout .section {
+    padding-top: 3rem;
+}
+
+/* Main app layout — offset for fixed navbar */
+body.has-navbar-fixed-top .section {
+    padding-top: 4.5rem;
+}
+
+/* Flash notifications */
+.flash-notification {
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Risk level colour cells */
+.risk-cell {
+    display: inline-block;
+    padding: 0.2em 0.6em;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.85em;
+    color: #fff;
+    text-align: center;
+    min-width: 60px;
+}
+
+.risk-cell.risk-extreme  { background-color: #c0392b; }
+.risk-cell.risk-high     { background-color: #e67e22; }
+.risk-cell.risk-medium   { background-color: #f1c40f; color: #363636; }
+.risk-cell.risk-low      { background-color: #27ae60; }
+.risk-cell.risk-very-low { background-color: #2980b9; }
+
+/* Table improvements */
+.table td, .table th {
+    vertical-align: middle;
+}
+
+.table td.is-narrow, .table th.is-narrow {
+    width: 1%;
+    white-space: nowrap;
+}
+
+/* Box shadows */
+.box {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Navbar refinement */
+.navbar.is-dark .navbar-dropdown {
+    border-top: 3px solid #485fc7;
+}
+
+/* Form focus ring */
+.input:focus, .select select:focus, .textarea:focus {
+    border-color: #485fc7;
+    box-shadow: 0 0 0 0.125em rgba(72, 95, 199, 0.25);
+}
+
+/* Subtle page header rule */
+.page-header {
+    border-bottom: 1px solid #dbdbdb;
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+}

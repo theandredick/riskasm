@@ -5,6 +5,46 @@ Format: `## [version or milestone] — YYYY-MM-DD`
 
 ---
 
+## [Phase 1 — 5.1 User Authentication] — 2026-04-10
+
+### Added
+- **User model** (`src/Models/User.php`) — full CRUD, password hashing, reset tokens, remember-me tokens
+- **AuthController** (`src/Controllers/AuthController.php`) — login, logout, register (first user auto-promoted to admin), forgot password, reset password, remember-me cookie (30-day sliding expiry)
+- **AdminController** (`src/Controllers/AdminController.php`) — user list, toggle active/inactive, change role, create user (admin-only, role-guarded)
+- **DashboardController** — basic protected dashboard page
+- **View helper** (`src/Helpers/View.php`) — renders PHP templates with Bulma base or auth layout
+- **Migrations 016 & 017** — `password_reset_tokens` and `remember_tokens` tables
+- **Layout templates** — `base.php` (full app with fixed navbar), `auth.php` (centered card), `navbar.php`, `flash.php` (4 levels, auto-dismiss)
+- **Auth templates** — `login.php`, `register.php`, `forgot-password.php`, `reset-password.php`
+- **Admin templates** — `users.php` (table with inline role select & toggle), `create-user.php`
+- **Dashboard template** — welcome card with navigation tiles
+- **`public_html/assets/css/app.css`** — Bulma custom overrides (auth layout, risk cells, navbar, flash animations)
+- **`public_html/assets/js/app.js`** — navbar burger, flash auto-dismiss, notification delete buttons
+- Remember-me boot called from `index.php` before routing — restores session from cookie automatically
+- Admin routes for user management added to `routes.php`
+
+### Security
+- CSRF token required on all POST forms
+- bcrypt password hashing
+- Password reset tokens: SHA-256 hashed in DB, 60-minute expiry, single-use
+- Remember-me tokens: SHA-256 hashed in DB, 30-day sliding expiry, deleted on logout
+- Session regenerated on every login (`session_regenerate_id(true)`)
+- Safe redirect validation (open redirect guard on `return_url`)
+- User enumeration prevention on forgot-password form
+
+### Files involved
+- `src/Models/User.php`, `src/Helpers/View.php`
+- `src/Controllers/AuthController.php`, `AdminController.php`, `DashboardController.php`
+- `src/Config/routes.php`, `public_html/index.php`
+- `database/migrations/016_create_password_reset_tokens.sql`, `017_create_remember_tokens.sql`
+- `templates/layout/base.php`, `auth.php`, `navbar.php`, `flash.php`
+- `templates/auth/login.php`, `register.php`, `forgot-password.php`, `reset-password.php`
+- `templates/admin/users.php`, `create-user.php`, `index.php`
+- `templates/dashboard/index.php`
+- `public_html/assets/css/app.css`, `public_html/assets/js/app.js`
+
+---
+
 ## [Phase 0 — Deployment Fix & Installation Guide] — 2026-04-09
 
 ### Changed
