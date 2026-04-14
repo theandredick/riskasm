@@ -1075,6 +1075,21 @@ MAIL_FROM_NAME="Smart Risk Assessment"
 MAIL_ENCRYPTION=tls
 ```
 
+### Pre-Deployment Checklist
+
+Before going live, complete the following items that were deferred during development:
+
+| # | Item | Notes |
+|---|---|---|
+| 1 | **Admin create-user: invitation email flow** | Currently admin sets the password directly. Replace with a "set your password" invitation link sent to the new user's email, so the admin never handles user passwords. Reuse the existing `password_reset_tokens` table and `Mailer` infrastructure. |
+| 2 | **Disable public registration** | Once real users exist, `/auth/register` should be admin-invite-only (or removed). Add an `APP_ALLOW_REGISTRATION=false` env flag that returns 404 on the register route. |
+| 3 | **Review and rotate all test accounts** | Remove or disable `admin@test.com`, `test@abc.io`, `dev@xyz.co`, and the `*.test.local` accounts before production launch. |
+| 4 | **Set `APP_ENV=production` in server `.env`** | Disables dev-only reset-link logging in `logs/app.log`. |
+| 5 | **Verify `APP_URL` uses HTTPS** | Ensures remember-me cookies are sent with `Secure` flag. |
+| 6 | **Run `composer install --no-dev`** on server | Strips dev dependencies from the production vendor directory. |
+
+---
+
 ### Git Workflow
 
 - `main` branch = production-ready code
