@@ -45,7 +45,7 @@ $returnUrl = $returnUrl ?? '/';
             <label class="label" for="password">Password</label>
             <div class="control has-icons-left has-icons-right">
                 <input
-                    class="input<?= isset($errors['password']) ? ' is-danger' : '' ?>"
+                    class="input pw-input<?= isset($errors['password']) ? ' is-danger' : '' ?>"
                     type="password"
                     id="password"
                     name="password"
@@ -53,10 +53,14 @@ $returnUrl = $returnUrl ?? '/';
                     required
                 >
                 <span class="icon is-left"><i class="fas fa-lock"></i></span>
-                <span class="icon is-right is-clickable" id="togglePassword" title="Show/hide password" style="pointer-events:all;">
+                <span class="icon is-right is-clickable toggle-pw" data-target="password" title="Show/hide password" style="pointer-events:all;">
                     <i class="fas fa-eye"></i>
                 </span>
             </div>
+            <p class="help is-warning caps-lock-warn" style="display:none;">
+                <span class="icon"><i class="fas fa-triangle-exclamation"></i></span>
+                Caps Lock is on
+            </p>
             <?php if (isset($errors['password'])): ?>
             <p class="help is-danger"><?= htmlspecialchars($errors['password'][0]) ?></p>
             <?php endif; ?>
@@ -93,15 +97,32 @@ $returnUrl = $returnUrl ?? '/';
 </div>
 
 <script>
-document.getElementById('togglePassword').addEventListener('click', function () {
-    const input = document.getElementById('password');
-    const icon  = this.querySelector('i');
-    if (input.type === 'password') {
-        input.type = 'text';
-        icon.classList.replace('fa-eye', 'fa-eye-slash');
-    } else {
-        input.type = 'password';
-        icon.classList.replace('fa-eye-slash', 'fa-eye');
-    }
-});
+(function () {
+    // Show / hide password toggles
+    document.querySelectorAll('.toggle-pw').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const input = document.getElementById(this.dataset.target);
+            const icon  = this.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        });
+    });
+
+    // Caps Lock warning
+    document.querySelectorAll('.pw-input').forEach(function (input) {
+        const warn = input.closest('.field').querySelector('.caps-lock-warn');
+        if (!warn) return;
+        ['keydown', 'keyup'].forEach(function (evt) {
+            input.addEventListener(evt, function (e) {
+                warn.style.display = e.getModifierState('CapsLock') ? '' : 'none';
+            });
+        });
+        input.addEventListener('blur', function () { warn.style.display = 'none'; });
+    });
+}());
 </script>
