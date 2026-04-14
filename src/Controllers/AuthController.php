@@ -190,13 +190,26 @@ class AuthController
             $rawToken = User::createResetToken((int) $user['id']);
             $resetUrl = APP_URL . '/auth/reset-password/' . $rawToken;
 
-            Mailer::send(
+            $sent = Mailer::send(
                 $user['email'],
                 $user['display_name'],
                 'Reset your Smart Risk Assessment password',
                 self::resetEmailHtml($user['display_name'], $resetUrl),
                 "Hi {$user['display_name']},\n\nReset your password: $resetUrl\n\nThis link expires in 60 minutes."
             );
+
+            // In local/dev mode: write the reset link to the log file so you can
+            // test without needing the email to land. Never runs in production.
+            if (APP_ENV === 'local') {
+                $logLine = sprintf(
+                    "[%s] DEV — Password reset link for %s:\n  %s\n  (email send: %s)\n",
+                    date('Y-m-d H:i:s'),
+                    $user['email'],
+                    $resetUrl,
+                    $sent ? 'OK' : 'FAILED — use link above directly'
+                );
+                error_log($logLine, 3, APP_ROOT . '/logs/app.log');
+            }
         }
 
         return Response::html(View::render('auth/forgot-password', [
