@@ -1,8 +1,186 @@
-/* ── Smart Risk Assessment — Custom Styles ──────────────────────────────────── */
+/* ── Smart Risk Assessment — Brand Styles ───────────────────────────────────── */
 
-/* Auth layout */
+/* ── Brand palette ───────────────────────────────────────────────────────────── */
+:root {
+    --ocean:      #003F5C;   /* Deep Ocean Blue  — trust, structure  */
+    --teal:       #2F9EAE;   /* Caribbean Teal   — freshness, action  */
+    --lime:       #C7FF33;   /* Safety Lime      — high-vis accent    */
+    --sand:       #F5E9DA;   /* Warm Neutral Sand — warmth, depth      */
+    --sand-dark:  #e8d5bc;   /* Sand, darkened for borders/hover      */
+    --text:       #1a2e3b;   /* Near-black with blue undertone        */
+    --text-muted: #5a7080;   /* Muted supporting text                 */
+    --white:      #ffffff;
+}
+
+/* ── Typography ──────────────────────────────────────────────────────────────── */
+body {
+    font-family: 'Source Sans 3', 'Open Sans', system-ui, sans-serif;
+    font-size: 1rem;
+    color: var(--text);
+    background-color: var(--white);
+}
+
+.title,
+.subtitle,
+h1, h2, h3, h4, h5, h6,
+.navbar-item.is-brand-name {
+    font-family: 'Montserrat', 'Inter', 'Public Sans', system-ui, sans-serif;
+}
+
+/* Bulma title colour override */
+.title { color: var(--ocean); }
+
+/* ── Navbar — Ocean Blue ─────────────────────────────────────────────────────── */
+.navbar.is-ocean {
+    background-color: var(--ocean);
+    border-bottom: 3px solid var(--teal);
+}
+
+.navbar.is-ocean .navbar-item,
+.navbar.is-ocean .navbar-link {
+    color: rgba(255, 255, 255, 0.88);
+    font-family: 'Montserrat', system-ui, sans-serif;
+    font-weight: 500;
+}
+
+.navbar.is-ocean .navbar-item:hover,
+.navbar.is-ocean .navbar-item:focus,
+.navbar.is-ocean .navbar-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+.navbar.is-ocean .navbar-burger span {
+    background-color: rgba(255, 255, 255, 0.88);
+}
+
+.navbar.is-ocean .navbar-burger:hover span {
+    background-color: #ffffff;
+}
+
+/* Dropdown */
+.navbar.is-ocean .navbar-dropdown {
+    background-color: var(--white);
+    border-top: 3px solid var(--teal);
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 8px 24px rgba(0, 63, 92, 0.15);
+}
+
+.navbar.is-ocean .navbar-dropdown .navbar-item {
+    color: var(--text);
+}
+
+.navbar.is-ocean .navbar-dropdown .navbar-item:hover {
+    background-color: var(--sand);
+    color: var(--ocean);
+}
+
+.navbar.is-ocean .navbar-dropdown .navbar-divider {
+    background-color: #e8e8e8;
+}
+
+/* Brand name in navbar */
+.navbar.is-ocean .navbar-brand .navbar-item {
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: -0.01em;
+    color: #ffffff;
+}
+
+.navbar.is-ocean .navbar-brand .navbar-item .icon {
+    color: var(--teal);
+}
+
+/* ── Buttons — brand palette ─────────────────────────────────────────────────── */
+
+/* Primary = Caribbean Teal */
+.button.is-primary,
+.button.is-link {
+    background-color: var(--teal);
+    border-color: transparent;
+    color: #ffffff;
+    font-family: 'Montserrat', system-ui, sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.button.is-primary:hover,
+.button.is-link:hover {
+    background-color: #268898;
+    color: #ffffff;
+}
+
+.button.is-primary:focus,
+.button.is-link:focus {
+    box-shadow: 0 0 0 0.2em rgba(47, 158, 174, 0.35);
+}
+
+/* Outlined variants */
+.button.is-primary.is-outlined,
+.button.is-link.is-outlined {
+    border-color: var(--teal);
+    color: var(--teal);
+    background: transparent;
+}
+
+.button.is-primary.is-outlined:hover,
+.button.is-link.is-outlined:hover {
+    background-color: var(--teal);
+    color: #ffffff;
+}
+
+/* Info = Ocean Blue */
+.button.is-info {
+    background-color: var(--ocean);
+    border-color: transparent;
+    color: #ffffff;
+    font-family: 'Montserrat', system-ui, sans-serif;
+    font-weight: 600;
+}
+
+.button.is-info:hover {
+    background-color: #00527a;
+    color: #ffffff;
+}
+
+.button.is-info.is-outlined {
+    border-color: var(--ocean);
+    color: var(--ocean);
+    background: transparent;
+}
+
+.button.is-info.is-outlined:hover {
+    background-color: var(--ocean);
+    color: #ffffff;
+}
+
+/* ── Forms ───────────────────────────────────────────────────────────────────── */
+.input,
+.textarea,
+.select select {
+    border-color: #c8d8e0;
+    color: var(--text);
+    background-color: var(--white);
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+}
+
+.input:focus,
+.textarea:focus,
+.select select:focus {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 0.15em rgba(47, 158, 174, 0.25);
+}
+
+.label {
+    color: var(--ocean);
+    font-family: 'Montserrat', system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+/* ── Auth layout ─────────────────────────────────────────────────────────────── */
 .auth-layout {
-    background-color: #f5f5f5;
+    background-color: var(--sand);
     min-height: 100vh;
 }
 
@@ -10,12 +188,59 @@
     padding-top: 3rem;
 }
 
-/* Main app layout — offset for fixed navbar */
+/* Force light backgrounds on auth cards (prevents dark-mode bleed) */
+.auth-layout .box {
+    background-color: var(--white);
+    border: 1px solid var(--sand-dark);
+    box-shadow: 0 4px 20px rgba(0, 63, 92, 0.10);
+}
+
+/* Brand header on auth pages */
+.brand-link {
+    text-decoration: none;
+    display: inline-block;
+}
+
+.brand-name {
+    font-family: 'Montserrat', system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 1.4rem;
+    color: var(--ocean);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin: 0;
+}
+
+.brand-icon {
+    color: var(--teal);
+    font-size: 1.3rem;
+}
+
+.brand-tagline {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+/* ── Main app layout ─────────────────────────────────────────────────────────── */
 body.has-navbar-fixed-top .section {
     padding-top: 4.5rem;
 }
 
-/* Flash notifications */
+body.has-navbar-fixed-top {
+    background-color: #f7f9fa;
+}
+
+/* ── Box shadows ─────────────────────────────────────────────────────────────── */
+.box {
+    background-color: var(--white);
+    box-shadow: 0 2px 10px rgba(0, 63, 92, 0.08);
+}
+
+/* ── Notifications ───────────────────────────────────────────────────────────── */
 .flash-notification {
     animation: slideDown 0.3s ease-out;
 }
@@ -25,53 +250,67 @@ body.has-navbar-fixed-top .section {
     to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Risk level colour cells */
+/* ── Tags ────────────────────────────────────────────────────────────────────── */
+.tag.is-ocean {
+    background-color: var(--ocean);
+    color: #ffffff;
+}
+
+.tag.is-teal {
+    background-color: var(--teal);
+    color: #ffffff;
+}
+
+/* ── Tables ──────────────────────────────────────────────────────────────────── */
+.table thead th {
+    font-family: 'Montserrat', system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    border-bottom-color: #d0dfe6;
+}
+
+.table td, .table th {
+    vertical-align: middle;
+}
+
+/* ── Risk cell colours ───────────────────────────────────────────────────────── */
 .risk-cell {
     display: inline-block;
     padding: 0.2em 0.6em;
     border-radius: 4px;
+    font-family: 'Montserrat', system-ui, sans-serif;
     font-weight: 600;
-    font-size: 0.85em;
+    font-size: 0.8rem;
     color: #fff;
     text-align: center;
-    min-width: 60px;
+    min-width: 64px;
+    letter-spacing: 0.02em;
 }
 
 .risk-cell.risk-extreme  { background-color: #c0392b; }
 .risk-cell.risk-high     { background-color: #e67e22; }
 .risk-cell.risk-medium   { background-color: #f1c40f; color: #363636; }
 .risk-cell.risk-low      { background-color: #27ae60; }
-.risk-cell.risk-very-low { background-color: #2980b9; }
+.risk-cell.risk-very-low { background-color: var(--teal); }
 
-/* Table improvements */
-.table td, .table th {
-    vertical-align: middle;
-}
-
-.table td.is-narrow, .table th.is-narrow {
-    width: 1%;
-    white-space: nowrap;
-}
-
-/* Box shadows */
-.box {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-/* Navbar refinement */
-.navbar.is-dark .navbar-dropdown {
-    border-top: 3px solid #485fc7;
-}
-
-/* Form focus ring */
-.input:focus, .select select:focus, .textarea:focus {
-    border-color: #485fc7;
-    box-shadow: 0 0 0 0.125em rgba(72, 95, 199, 0.25);
-}
-
-/* Subtle page header rule */
+/* ── Utility ─────────────────────────────────────────────────────────────────── */
 .page-header {
-    border-bottom: 1px solid #dbdbdb;
+    border-bottom: 2px solid var(--sand-dark);
     padding-bottom: 1rem;
     margin-bottom: 1.5rem;
+}
+
+.has-text-ocean { color: var(--ocean) !important; }
+.has-text-teal  { color: var(--teal)  !important; }
+.has-text-lime  { color: var(--lime)  !important; }
+.has-background-ocean { background-color: var(--ocean) !important; }
+.has-background-teal  { background-color: var(--teal)  !important; }
+.has-background-sand  { background-color: var(--sand)  !important; }
+
+/* Lime accent bar (e.g. highlighted cards or row indicators) */
+.accent-lime {
+    border-left: 4px solid var(--lime);
 }
