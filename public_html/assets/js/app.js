@@ -127,7 +127,113 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Password field enhancements (show/hide toggle + caps-lock warning) ─────
     initPasswordFields();
 
+    // ── Client-side validation for all novalidate forms ────────────────────────
+    initFormValidation();
+
 });
+
+/**
+ * Generic client-side validation for every form that has the novalidate
+ * attribute.  Checks required, minlength, and email fields on submit and
+ * clears errors as the user corrects each field.
+ */
+function initFormValidation() {
+    document.querySelectorAll('form[novalidate]').forEach((form) => {
+
+        form.addEventListener('submit', (e) => {
+            let ok = true;
+
+            form.querySelectorAll(
+                'input[required], select[required], textarea[required], ' +
+                'input[minlength]:not([required])'
+            ).forEach((field) => {
+                const msg = fieldError(field);
+                if (msg) {
+                    markError(field, msg);
+                    ok = false;
+                } else {
+                    clearError(field);
+                }
+            });
+
+            if (!ok) {
+                e.preventDefault();
+                // Scroll the first bad field into view
+                const first = form.querySelector('input.is-danger, select.is-danger, textarea.is-danger');
+                if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+
+        // Clear an error as soon as the user corrects the field
+        form.addEventListener('input',  (e) => clearError(e.target));
+        form.addEventListener('change', (e) => clearError(e.target));
+    });
+}
+
+/** Returns an error string for the field, or null if it is valid. */
+function fieldError(field) {
+    const val = field.value.trim();
+    const tag = field.tagName.toLowerCase();
+
+    if (field.hasAttribute('required') && val === '') {
+        const label = field.closest('.field')?.querySelector('label')?.textContent?.trim();
+        return (label ? label.replace(/:$/, '') : 'This field') + ' is required.';
+    }
+
+    if (val !== '' && field.hasAttribute('minlength')) {
+        const min = parseInt(field.getAttribute('minlength'), 10);
+        if (val.length < min) {
+            const label = field.closest('.field')?.querySelector('label')?.textContent?.trim();
+            return (label ? label.replace(/:$/, '') : 'This field') +
+                   ` must be at least ${min} characters.`;
+        }
+    }
+
+    if (val !== '' && field.type === 'email') {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+            return 'Please enter a valid email address.';
+        }
+    }
+
+    return null;
+}
+
+/** Highlights a field and inserts/shows a Bulma help error beneath it. */
+function markError(field, message) {
+    if (!field.matches('input, select, textarea')) return;
+    field.classList.add('is-danger');
+
+    // Also mark the wrapping .select div if present
+    const selectWrap = field.closest('.select');
+    if (selectWrap) selectWrap.classList.add('is-danger');
+
+    const fieldEl = field.closest('.field');
+    if (!fieldEl) return;
+
+    let el = fieldEl.querySelector('.js-val-error');
+    if (!el) {
+        el = document.createElement('p');
+        el.className = 'help is-danger js-val-error';
+        fieldEl.appendChild(el);
+    }
+    el.textContent = message;
+    el.style.display = '';
+}
+
+/** Removes the error highlight and hides the help message for a field. */
+function clearError(field) {
+    if (!field.matches || !field.matches('input, select, textarea')) return;
+    field.classList.remove('is-danger');
+
+    const selectWrap = field.closest('.select');
+    if (selectWrap) selectWrap.classList.remove('is-danger');
+
+    const fieldEl = field.closest('.field');
+    if (!fieldEl) return;
+
+    const el = fieldEl.querySelector('.js-val-error');
+    if (el) el.style.display = 'none';
+}
 
 /**
  * Attaches a show/hide eye icon and a Caps Lock warning to every
