@@ -52,7 +52,7 @@ Session::start();
 
             <div class="navbar-end">
                 <?php if (Session::isLoggedIn()): ?>
-                <div class="navbar-item has-dropdown is-hoverable">
+                <div class="navbar-item has-dropdown">
                     <a class="navbar-link">
                         <span class="icon-text">
                             <span class="icon"><i class="fas fa-circle-user"></i></span>

@@ -58,27 +58,6 @@ h1, h2, h3, h4, h5, h6,
     background-color: #ffffff;
 }
 
-/* Dropdown */
-.navbar.is-ocean .navbar-dropdown {
-    background-color: var(--white);
-    border-top: 3px solid var(--teal);
-    border-radius: 0 0 6px 6px;
-    box-shadow: 0 8px 24px rgba(0, 63, 92, 0.15);
-}
-
-.navbar.is-ocean .navbar-dropdown .navbar-item {
-    color: var(--text);
-}
-
-.navbar.is-ocean .navbar-dropdown .navbar-item:hover {
-    background-color: var(--sand);
-    color: var(--ocean);
-}
-
-.navbar.is-ocean .navbar-dropdown .navbar-divider {
-    background-color: #e8e8e8;
-}
-
 /* Brand name in navbar */
 .navbar.is-ocean .navbar-brand .navbar-item {
     font-weight: 700;
@@ -324,14 +303,38 @@ body.has-navbar-fixed-top {
     transform: rotate(135deg) !important;
 }
 
-/* Desktop: also show dropdown via is-active (supplements is-hoverable) */
+/* ── Desktop navbar dropdown (≥ 1024 px) ─────────────────────────────────────── */
 @media screen and (min-width: 1024px) {
+    /* White card-style dropdown — desktop only */
+    .navbar.is-ocean .navbar-dropdown {
+        background-color: var(--white);
+        border-top: 3px solid var(--teal);
+        border-radius: 0 0 6px 6px;
+        box-shadow: 0 8px 24px rgba(0, 63, 92, 0.15);
+        min-width: 15rem;   /* keeps "User Management" on one line */
+    }
+
+    .navbar.is-ocean .navbar-dropdown .navbar-item {
+        color: var(--text);
+        font-size: 0.9rem;
+    }
+
+    .navbar.is-ocean .navbar-dropdown .navbar-item:hover {
+        background-color: var(--sand);
+        color: var(--ocean);
+    }
+
+    .navbar.is-ocean .navbar-dropdown .navbar-divider {
+        background-color: #e8e8e8;
+    }
+
+    /* Show dropdown when is-active (click-toggle — is-hoverable removed from template) */
     .navbar.is-ocean .has-dropdown.is-active > .navbar-dropdown {
         display: block;
     }
 }
 
-/* ── Mobile navbar — ocean theme on expand ───────────────────────────────────── */
+/* ── Mobile navbar — ocean theme on expand (< 1024 px) ───────────────────────── */
 @media screen and (max-width: 1023px) {
     .navbar.is-ocean .navbar-menu {
         background-color: var(--ocean);
@@ -350,35 +353,41 @@ body.has-navbar-fixed-top {
         color: #ffffff;
     }
 
-    /* On mobile the account sub-menu is hidden by default; shown via is-active. */
+    /*
+     * Sub-menu (account dropdown) on mobile:
+     * hidden by default, revealed via JS adding .is-active.
+     * All colour rules use !important to beat any Bulma mobile overrides.
+     */
     .navbar.is-ocean .navbar-menu .has-dropdown > .navbar-dropdown {
-        display: none;
-        background-color: rgba(0, 0, 0, 0.18);
-        border-radius: 0;
-        border-top: 1px solid rgba(255, 255, 255, 0.12);
-        box-shadow: none;
-        padding: 0;
+        display: none !important;
     }
 
     .navbar.is-ocean .navbar-menu .has-dropdown.is-active > .navbar-dropdown {
-        display: block;
+        display: block !important;
+        background-color: rgba(0, 0, 0, 0.25) !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        padding: 0.25rem 0 !important;
     }
 
-    .navbar.is-ocean .navbar-dropdown .navbar-item {
-        color: rgba(255, 255, 255, 0.80) !important;
-        padding-left: 2rem;
+    .navbar.is-ocean .navbar-menu .navbar-dropdown .navbar-item {
+        color: rgba(255, 255, 255, 0.85) !important;
+        padding-left: 2rem !important;
     }
 
-    .navbar.is-ocean .navbar-dropdown .navbar-item:hover {
+    .navbar.is-ocean .navbar-menu .navbar-dropdown .navbar-item:hover,
+    .navbar.is-ocean .navbar-menu .navbar-dropdown .navbar-item:focus {
         background-color: rgba(255, 255, 255, 0.1) !important;
         color: #ffffff !important;
     }
 
-    .navbar.is-ocean .navbar-dropdown .navbar-divider {
-        background-color: rgba(255, 255, 255, 0.15);
+    .navbar.is-ocean .navbar-menu .navbar-dropdown .navbar-divider {
+        background-color: rgba(255, 255, 255, 0.18) !important;
+        margin: 0.25rem 0 !important;
     }
 
-    /* Chevron colour on dark background */
+    /* Chevron colour matches white menu text */
     .navbar.is-ocean .has-dropdown > .navbar-link::after {
         border-color: rgba(255, 255, 255, 0.7);
     }
