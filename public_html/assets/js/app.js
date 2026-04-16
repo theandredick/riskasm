@@ -11,8 +11,48 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Close mobile menu when a nav link is clicked
-    document.querySelectorAll('#mainNavbar .navbar-item:not(.has-dropdown)').forEach((item) => {
+    // ── Navbar account dropdown: click / tap to toggle on all widths ───────────
+    document.querySelectorAll('.navbar .has-dropdown').forEach((item) => {
+        const link = item.querySelector(':scope > .navbar-link');
+        if (!link) return;
+
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            // Close any other open dropdowns
+            document.querySelectorAll('.navbar .has-dropdown.is-active').forEach((other) => {
+                if (other !== item) other.classList.remove('is-active');
+            });
+            item.classList.toggle('is-active');
+        });
+    });
+
+    // Close the dropdown when clicking anywhere outside it
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.navbar .has-dropdown')) {
+            document.querySelectorAll('.navbar .has-dropdown.is-active').forEach((item) => {
+                item.classList.remove('is-active');
+            });
+        }
+    });
+
+    // Close dropdown + mobile menu when a dropdown link is followed
+    document.querySelectorAll('.navbar-dropdown .navbar-item').forEach((link) => {
+        link.addEventListener('click', () => {
+            const parent = link.closest('.has-dropdown');
+            if (parent) parent.classList.remove('is-active');
+            // Also collapse mobile menu
+            const menu   = document.getElementById('mainNavbar');
+            const burger = document.querySelector('.navbar-burger[data-target="mainNavbar"]');
+            if (menu)   menu.classList.remove('is-active');
+            if (burger) {
+                burger.classList.remove('is-active');
+                burger.setAttribute('aria-expanded', 'false');
+            }
+        });
+    });
+
+    // Close mobile menu when a plain (non-dropdown) nav link is clicked
+    document.querySelectorAll('#mainNavbar .navbar-start .navbar-item').forEach((item) => {
         item.addEventListener('click', () => {
             const menu   = document.getElementById('mainNavbar');
             const burger = document.querySelector('.navbar-burger[data-target="mainNavbar"]');
@@ -41,23 +81,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // ── Mobile: tap to toggle navbar account dropdown ─────────────────────────
-    // On touch devices .is-hoverable doesn't trigger; wire a click handler.
-    document.querySelectorAll('.navbar .has-dropdown').forEach((item) => {
-        const link = item.querySelector('.navbar-link');
-        if (!link) return;
-        link.addEventListener('click', (e) => {
-            // Only intercept on mobile widths (burger visible)
-            if (window.innerWidth <= 1023) {
-                e.preventDefault();
-                item.classList.toggle('is-active');
-            }
-        });
-    });
-
     // ── Create-user modal ──────────────────────────────────────────────────────
-    const modal    = document.getElementById('createUserModal');
-    const openBtn  = document.getElementById('openCreateUser');
+    const modal     = document.getElementById('createUserModal');
+    const openBtn   = document.getElementById('openCreateUser');
     const closeBtns = [
         document.getElementById('closeModal'),
         document.getElementById('cancelModal'),
@@ -69,7 +95,6 @@ document.addEventListener('DOMContentLoaded', () => {
         closeBtns.forEach((el) => {
             if (el) el.addEventListener('click', () => modal.classList.remove('is-active'));
         });
-        // Close on Escape
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && modal.classList.contains('is-active')) {
                 modal.classList.remove('is-active');
@@ -99,4 +124,66 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ── Password field enhancements (show/hide toggle + caps-lock warning) ─────
+    initPasswordFields();
+
 });
+
+/**
+ * Attaches a show/hide eye icon and a Caps Lock warning to every
+ * input[type="password"] on the page. Safe to call multiple times — fields
+ * that have already been initialised are skipped via a data attribute.
+ */
+function initPasswordFields() {
+    document.querySelectorAll('input[type="password"]').forEach((input) => {
+        const control = input.closest('.control');
+        if (!control || control.dataset.pwInit) return;
+        control.dataset.pwInit = '1';
+
+        // ── Show / hide toggle ───────────────────────────────────────────────
+        control.classList.add('has-icons-right');
+
+        const toggleBtn = document.createElement('span');
+        toggleBtn.className = 'icon is-right pw-toggle';
+        toggleBtn.setAttribute('role', 'button');
+        toggleBtn.setAttribute('tabindex', '0');
+        toggleBtn.setAttribute('aria-label', 'Toggle password visibility');
+        toggleBtn.title = 'Show / hide password';
+        toggleBtn.innerHTML = '<i class="fas fa-eye"></i>';
+        control.appendChild(toggleBtn);
+
+        const doToggle = () => {
+            const revealing  = input.type === 'password';
+            input.type       = revealing ? 'text' : 'password';
+            toggleBtn.querySelector('i').className =
+                revealing ? 'fas fa-eye-slash' : 'fas fa-eye';
+            input.focus();
+        };
+
+        toggleBtn.addEventListener('click', doToggle);
+        toggleBtn.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); doToggle(); }
+        });
+
+        // ── Caps Lock warning ────────────────────────────────────────────────
+        const field = input.closest('.field');
+        if (!field) return;
+
+        const capsEl = document.createElement('p');
+        capsEl.className = 'help pw-caps-warning';
+        capsEl.style.display = 'none';
+        capsEl.innerHTML =
+            '<span class="icon is-small"><i class="fas fa-triangle-exclamation"></i></span>' +
+            ' Caps Lock is on';
+        // Insert right after the .control so it appears below the input
+        control.insertAdjacentElement('afterend', capsEl);
+
+        const checkCaps = (e) => {
+            if (typeof e.getModifierState === 'function') {
+                capsEl.style.display = e.getModifierState('CapsLock') ? '' : 'none';
+            }
+        };
+        input.addEventListener('keydown', checkCaps);
+        input.addEventListener('keyup',   checkCaps);
+    });
+}

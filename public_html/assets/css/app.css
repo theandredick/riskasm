@@ -315,6 +315,22 @@ body.has-navbar-fixed-top {
     box-shadow: 0 0 0 0.2em rgba(181, 43, 39, 0.25);
 }
 
+/* ── Navbar dropdown chevron: animated on all widths ─────────────────────────── */
+.navbar .has-dropdown > .navbar-link::after {
+    transition: transform 0.2s ease;
+}
+
+.navbar .has-dropdown.is-active > .navbar-link::after {
+    transform: rotate(135deg) !important;
+}
+
+/* Desktop: also show dropdown via is-active (supplements is-hoverable) */
+@media screen and (min-width: 1024px) {
+    .navbar.is-ocean .has-dropdown.is-active > .navbar-dropdown {
+        display: block;
+    }
+}
+
 /* ── Mobile navbar — ocean theme on expand ───────────────────────────────────── */
 @media screen and (max-width: 1023px) {
     .navbar.is-ocean .navbar-menu {
@@ -334,12 +350,18 @@ body.has-navbar-fixed-top {
         color: #ffffff;
     }
 
-    .navbar.is-ocean .navbar-dropdown {
+    /* On mobile the account sub-menu is hidden by default; shown via is-active. */
+    .navbar.is-ocean .navbar-menu .has-dropdown > .navbar-dropdown {
+        display: none;
         background-color: rgba(0, 0, 0, 0.18);
         border-radius: 0;
         border-top: 1px solid rgba(255, 255, 255, 0.12);
         box-shadow: none;
         padding: 0;
+    }
+
+    .navbar.is-ocean .navbar-menu .has-dropdown.is-active > .navbar-dropdown {
+        display: block;
     }
 
     .navbar.is-ocean .navbar-dropdown .navbar-item {
@@ -356,7 +378,7 @@ body.has-navbar-fixed-top {
         background-color: rgba(255, 255, 255, 0.15);
     }
 
-    /* Make the user-account dropdown toggle tappable */
+    /* Chevron colour on dark background */
     .navbar.is-ocean .has-dropdown > .navbar-link::after {
         border-color: rgba(255, 255, 255, 0.7);
     }
@@ -367,6 +389,26 @@ body.has-navbar-fixed-top {
         padding-left: 0.75rem;
         padding-right: 0.75rem;
     }
+}
+
+/* ── Password show/hide toggle icon ──────────────────────────────────────────── */
+.pw-toggle {
+    pointer-events: all !important; /* Bulma sets pointer-events:none on .icon.is-right */
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: color 0.15s;
+    z-index: 4;
+}
+
+.pw-toggle:hover,
+.pw-toggle:focus {
+    color: var(--teal);
+    outline: none;
+}
+
+/* ── Caps Lock warning ────────────────────────────────────────────────────────── */
+.pw-caps-warning {
+    color: #8a5700 !important; /* warm amber — readable on white */
 }
 
 /* ── Modal sizing ─────────────────────────────────────────────────────────────── */
