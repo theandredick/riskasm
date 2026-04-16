@@ -5,6 +5,29 @@ Format: `## [version or milestone] — YYYY-MM-DD`
 
 ---
 
+## [Phase 1 — 5.2 System Risk Matrix Templates] — 2026-04-16
+
+### Added
+- **10 built-in system risk matrices** seeded via migration 018, all read-only:
+  - Simple 3×3, Standard 4×4, Detailed 5×5 (AS/NZS ISO 31000), ISO 31010 5×5
+  - Oil & Gas 6×6 (Shell/BP), FAA/ICAO Aviation 5×5, NORSOK Z-013 5×5
+  - HSE UK Offshore 5×5, NFPA Fire Risk 5×3, U.S. Army ATP 5-19 4×5
+- **Matrix Library page** (`/matrices`) — card grid showing all system and user-owned matrices with dimension badge, description, View and Clone actions
+- **Matrix View page** (`/matrices/{id}`) — interactive colour-coded risk grid (severity × likelihood), risk bands legend with management guidance, likelihood reference table with quantitative frequency ranges, severity/consequence table with multi-category descriptions (Safety, Environmental, Asset Damage, Business Interruption where defined), clone action
+- **RiskMatrix model** (`src/Models/RiskMatrix.php`) — full queries: list for user, full data bundle, cell lookup, consequence category descriptions, clone, delete
+- **MatrixController** (`src/Controllers/MatrixController.php`) — index, show, copy, destroy; Phase 2 builder stubs
+- **MatrixApiController** (`src/Controllers/MatrixApiController.php`) — `GET /api/matrices/{id}` (full bundle JSON) and `GET /api/matrices/{id}/cell` (single cell lookup for live risk level in assessment editor)
+- **Consequence categories with per-level descriptions** for: AS/NZS 5×5 (Safety, Environmental, Asset Damage, Business Interruption), ISO 31010 (Safety/Health, Environmental, Reputation), Oil & Gas (People, Environment, Asset/Financial, Reputation), FAA/ICAO (Aviation Safety)
+- **Clone functionality** — POST `/matrices/{id}/copy` deep-copies a matrix (levels, bands, cells, categories, descriptions) into a user-owned editable copy
+
+### Files involved
+- `database/migrations/018_seed_system_matrices.sql` (new)
+- `src/Models/RiskMatrix.php`, `src/Models/MatrixLevel.php` (stub)
+- `src/Controllers/MatrixController.php`, `src/Controllers/MatrixApiController.php`
+- `templates/matrices/index.php` (new), `templates/matrices/view.php` (new)
+
+---
+
 ## [Phase 1 — 5.2 Profile, UX & Mobile] — 2026-04-15
 
 ### Added
