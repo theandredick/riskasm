@@ -371,14 +371,23 @@ body.has-navbar-fixed-top {
         padding: 0.25rem 0 !important;
     }
 
-    .navbar.is-ocean .navbar-menu .navbar-dropdown .navbar-item {
+    /*
+     * Bulma 1.0.2 sets background-color on every .navbar-dropdown .navbar-item
+     * via CSS custom-property HSL formulas, which renders items white on mobile.
+     * Override with transparent so the container dark background shows through.
+     */
+    .navbar.is-ocean .navbar-menu .navbar-dropdown .navbar-item,
+    .navbar.is-ocean .navbar-menu .navbar-dropdown a.navbar-item {
+        background-color: transparent !important;
         color: rgba(255, 255, 255, 0.85) !important;
         padding-left: 2rem !important;
     }
 
     .navbar.is-ocean .navbar-menu .navbar-dropdown .navbar-item:hover,
-    .navbar.is-ocean .navbar-menu .navbar-dropdown .navbar-item:focus {
-        background-color: rgba(255, 255, 255, 0.1) !important;
+    .navbar.is-ocean .navbar-menu .navbar-dropdown .navbar-item:focus,
+    .navbar.is-ocean .navbar-menu .navbar-dropdown a.navbar-item:hover,
+    .navbar.is-ocean .navbar-menu .navbar-dropdown a.navbar-item:focus {
+        background-color: rgba(255, 255, 255, 0.12) !important;
         color: #ffffff !important;
     }
 
