@@ -128,6 +128,21 @@ class AdminController
         return Response::redirect('/admin/users');
     }
 
+    public function checkEmail(Request $request): Response
+    {
+        if ($guard = AuthMiddleware::require($request)) {
+            return $guard;
+        }
+        if ($guard = RoleMiddleware::require('admin')) {
+            return $guard;
+        }
+
+        $email  = trim($request->input('email', ''));
+        $exists = $email !== '' && User::emailExists($email);
+
+        return Response::json(['exists' => $exists]);
+    }
+
     public function createUser(Request $request): Response
     {
         if ($guard = AuthMiddleware::require($request)) {

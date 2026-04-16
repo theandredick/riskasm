@@ -139,19 +139,28 @@ $mval = fn(string $k, string $fb = '') => htmlspecialchars($modal_old[$k] ?? $fb
                     </td>
                     <td class="has-text-right">
                         <?php if (!$isSelf): ?>
-                        <form method="POST" action="/admin/users/<?= (int) $u['id'] ?>/toggle" class="is-inline-block">
+                        <form method="POST" action="/admin/users/<?= (int) $u['id'] ?>/toggle" class="is-inline-block js-toggle-form">
                             <?= Csrf::field() ?>
+                            <?php if ($u['is_active']): ?>
                             <button
-                                class="button is-small <?= $u['is_active'] ? 'is-danger-muted' : 'is-success is-light' ?>"
-                                type="submit"
-                                onclick="return confirm('<?= $u['is_active'] ? 'Disable' : 'Enable' ?> this user?')"
-                                title="<?= $u['is_active'] ? 'Disable account' : 'Enable account' ?>"
+                                class="button is-small is-danger-muted js-disable-btn"
+                                type="button"
+                                data-name="<?= htmlspecialchars($u['display_name']) ?>"
+                                title="Disable account"
                             >
-                                <span class="icon">
-                                    <i class="fas <?= $u['is_active'] ? 'fa-ban' : 'fa-circle-check' ?>"></i>
-                                </span>
-                                <span><?= $u['is_active'] ? 'Disable' : 'Enable' ?></span>
+                                <span class="icon"><i class="fas fa-ban"></i></span>
+                                <span>Disable</span>
                             </button>
+                            <?php else: ?>
+                            <button
+                                class="button is-small is-success is-light"
+                                type="submit"
+                                title="Enable account"
+                            >
+                                <span class="icon"><i class="fas fa-circle-check"></i></span>
+                                <span>Enable</span>
+                            </button>
+                            <?php endif; ?>
                         </form>
                         <?php endif; ?>
                     </td>
@@ -165,6 +174,33 @@ $mval = fn(string $k, string $fb = '') => htmlspecialchars($modal_old[$k] ?? $fb
     No users match your search.
 </p>
 <?php endif; ?>
+
+<!-- ── Disable User Confirmation Modal ─────────────────────────────────────── -->
+<div class="modal" id="disableUserModal">
+    <div class="modal-background" id="disableModalBackground"></div>
+    <div class="modal-card" style="max-width:480px;">
+        <header class="modal-card-head" style="background:#fce8e8; border-bottom:1px solid #d9534f;">
+            <p class="modal-card-title" style="color:#b52b27;">
+                <span class="icon-text">
+                    <span class="icon"><i class="fas fa-ban"></i></span>
+                    <span>Disable User</span>
+                </span>
+            </p>
+            <button class="delete" aria-label="close" id="closeDisableModal"></button>
+        </header>
+        <section class="modal-card-body">
+            <p>Are you sure you want to disable <strong id="disableUserName"></strong>?</p>
+            <p class="mt-2 has-text-grey-dark">They will immediately lose all access to the application.</p>
+        </section>
+        <footer class="modal-card-foot" style="justify-content: flex-end;">
+            <button type="button" class="button" id="cancelDisableModal">Cancel</button>
+            <button type="button" class="button is-danger ml-2" id="confirmDisableBtn">
+                <span class="icon"><i class="fas fa-ban"></i></span>
+                <span>Yes, disable</span>
+            </button>
+        </footer>
+    </div>
+</div>
 
 <!-- ── Create User Modal ───────────────────────────────────────────────────── -->
 <div class="modal<?= $modal_open ? ' is-active' : '' ?>" id="createUserModal">
@@ -209,7 +245,7 @@ $mval = fn(string $k, string $fb = '') => htmlspecialchars($modal_old[$k] ?? $fb
 
                 <div class="field">
                     <label class="label" for="m_email">Email Address</label>
-                    <div class="control has-icons-left">
+                    <div class="control has-icons-left has-icons-right">
                         <input
                             id="m_email"
                             name="email"
@@ -220,8 +256,14 @@ $mval = fn(string $k, string $fb = '') => htmlspecialchars($modal_old[$k] ?? $fb
                             required
                         >
                         <span class="icon is-left"><i class="fas fa-envelope"></i></span>
+                        <span class="icon is-right is-hidden" id="m_email_spinner">
+                            <i class="fas fa-circle-notch fa-spin"></i>
+                        </span>
                     </div>
                     <?= $merr('email') ?>
+                    <p class="help is-danger js-email-taken" style="display:none;">
+                        That email address is already registered.
+                    </p>
                 </div>
 
                 <div class="columns">
@@ -250,11 +292,14 @@ $mval = fn(string $k, string $fb = '') => htmlspecialchars($modal_old[$k] ?? $fb
                             <div class="control">
                                 <div class="select is-fullwidth<?= $mcls('role') ?>">
                                     <select id="m_role" name="role" required>
-                                        <?php foreach ($roles as $r): ?>
-                                        <option value="<?= $r ?>"<?= $mval('role') === $r ? ' selected' : '' ?>>
+                                        <?php
+                                        $defaultRole = $mval('role') !== '' ? $mval('role') : 'assessor';
+                                        foreach ($roles as $r):
+                                    ?>
+                                        <option value="<?= $r ?>"<?= $defaultRole === $r ? ' selected' : '' ?>>
                                             <?= ucfirst($r) ?>
                                         </option>
-                                        <?php endforeach; ?>
+                                    <?php endforeach; ?>
                                     </select>
                                 </div>
                             </div>

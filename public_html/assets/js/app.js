@@ -102,6 +102,100 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ── Disable-user confirmation modal ───────────────────────────────────────
+    const disableModal     = document.getElementById('disableUserModal');
+    const disableUserName  = document.getElementById('disableUserName');
+    const confirmDisableBtn = document.getElementById('confirmDisableBtn');
+    const closeDisableBtns = [
+        document.getElementById('closeDisableModal'),
+        document.getElementById('cancelDisableModal'),
+        document.getElementById('disableModalBackground'),
+    ];
+    let pendingDisableForm = null;
+
+    if (disableModal) {
+        document.querySelectorAll('.js-disable-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                pendingDisableForm = btn.closest('.js-toggle-form');
+                if (disableUserName) disableUserName.textContent = btn.dataset.name ?? 'this user';
+                disableModal.classList.add('is-active');
+            });
+        });
+
+        closeDisableBtns.forEach((el) => {
+            if (el) el.addEventListener('click', () => {
+                disableModal.classList.remove('is-active');
+                pendingDisableForm = null;
+            });
+        });
+
+        if (confirmDisableBtn) {
+            confirmDisableBtn.addEventListener('click', () => {
+                if (pendingDisableForm) pendingDisableForm.submit();
+            });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && disableModal.classList.contains('is-active')) {
+                disableModal.classList.remove('is-active');
+                pendingDisableForm = null;
+            }
+        });
+    }
+
+    // ── Create-user modal: AJAX email-exists check ─────────────────────────────
+    const emailInput    = document.getElementById('m_email');
+    const emailSpinner  = document.getElementById('m_email_spinner');
+    const emailTakenMsg = document.querySelector('.js-email-taken');
+    const createForm    = emailInput ? emailInput.closest('form') : null;
+
+    if (emailInput && emailTakenMsg) {
+        let lastChecked = '';
+
+        const checkEmail = async () => {
+            const val = emailInput.value.trim();
+            if (val === lastChecked) return;
+            lastChecked = val;
+
+            // Skip if blank or obviously invalid (let HTML5 required/email handle it)
+            if (!val || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+                emailTakenMsg.style.display = 'none';
+                return;
+            }
+
+            if (emailSpinner) emailSpinner.classList.remove('is-hidden');
+            try {
+                const res  = await fetch('/admin/users/check-email?email=' + encodeURIComponent(val));
+                const data = await res.json();
+                if (data.exists) {
+                    emailTakenMsg.style.display = '';
+                    emailInput.classList.add('is-danger');
+                } else {
+                    emailTakenMsg.style.display = 'none';
+                    // Only remove is-danger if it was set by this check (not a server-side error)
+                    if (!emailInput.closest('.field').querySelector('.help.is-danger:not(.js-email-taken)')) {
+                        emailInput.classList.remove('is-danger');
+                    }
+                }
+            } catch (_) { /* network error — silent, server will catch it */ }
+            finally {
+                if (emailSpinner) emailSpinner.classList.add('is-hidden');
+            }
+        };
+
+        emailInput.addEventListener('blur', checkEmail);
+
+        // Block submit if the email is already taken
+        if (createForm) {
+            createForm.addEventListener('submit', (e) => {
+                if (emailTakenMsg.style.display !== 'none') {
+                    e.preventDefault();
+                    emailInput.focus();
+                }
+            });
+        }
+    }
+
     // ── Users table live search ────────────────────────────────────────────────
     const searchInput = document.getElementById('userSearch');
     const usersTable  = document.getElementById('usersTable');

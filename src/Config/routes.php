@@ -96,6 +96,7 @@ $router->add('POST', '/library/controls/{id}/delete', 'LibraryController@deleteC
 $router->add('GET',  '/admin',                    'AdminController@index');
 $router->add('GET',  '/admin/users',              'AdminController@users');
 $router->add('GET',  '/admin/users/new',          'AdminController@createUser');
+$router->add('GET',  '/admin/users/check-email',  'AdminController@checkEmail');
 $router->add('POST', '/admin/users/new',          'AdminController@storeUser');
 $router->add('POST', '/admin/users/{id}/toggle',  'AdminController@toggleUser');
 $router->add('POST', '/admin/users/{id}/role',    'AdminController@updateRole');
