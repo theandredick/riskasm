@@ -296,6 +296,92 @@ body.has-navbar-fixed-top {
 .risk-cell.risk-low      { background-color: #27ae60; }
 .risk-cell.risk-very-low { background-color: var(--teal); }
 
+/* ── Disable / Danger muted button (calm red) ────────────────────────────────── */
+.button.is-danger-muted {
+    background-color: #fce8e8;
+    border-color: #d9534f;
+    color: #b52b27;
+    font-weight: 600;
+}
+
+.button.is-danger-muted:hover,
+.button.is-danger-muted:focus {
+    background-color: #f5c6c6;
+    border-color: #b52b27;
+    color: #8b1a17;
+}
+
+.button.is-danger-muted:focus {
+    box-shadow: 0 0 0 0.2em rgba(181, 43, 39, 0.25);
+}
+
+/* ── Mobile navbar — ocean theme on expand ───────────────────────────────────── */
+@media screen and (max-width: 1023px) {
+    .navbar.is-ocean .navbar-menu {
+        background-color: var(--ocean);
+        box-shadow: 0 8px 20px rgba(0, 63, 92, 0.35);
+        padding: 0.5rem 0;
+    }
+
+    .navbar.is-ocean .navbar-menu .navbar-item,
+    .navbar.is-ocean .navbar-menu .navbar-link {
+        color: rgba(255, 255, 255, 0.88);
+    }
+
+    .navbar.is-ocean .navbar-menu .navbar-item:hover,
+    .navbar.is-ocean .navbar-menu .navbar-item:focus {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: #ffffff;
+    }
+
+    .navbar.is-ocean .navbar-dropdown {
+        background-color: rgba(0, 0, 0, 0.18);
+        border-radius: 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: none;
+        padding: 0;
+    }
+
+    .navbar.is-ocean .navbar-dropdown .navbar-item {
+        color: rgba(255, 255, 255, 0.80) !important;
+        padding-left: 2rem;
+    }
+
+    .navbar.is-ocean .navbar-dropdown .navbar-item:hover {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        color: #ffffff !important;
+    }
+
+    .navbar.is-ocean .navbar-dropdown .navbar-divider {
+        background-color: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Make the user-account dropdown toggle tappable */
+    .navbar.is-ocean .has-dropdown > .navbar-link::after {
+        border-color: rgba(255, 255, 255, 0.7);
+    }
+
+    /* Reduce section padding on small screens */
+    body.has-navbar-fixed-top .section {
+        padding-top: 4rem;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+}
+
+/* ── Modal sizing ─────────────────────────────────────────────────────────────── */
+@media screen and (max-width: 768px) {
+    .modal-card {
+        width: calc(100vw - 2rem);
+        margin: 0 1rem;
+        max-height: calc(100vh - 4rem);
+    }
+
+    .modal-card-body {
+        overflow-y: auto;
+    }
+}
+
 /* ── Utility ─────────────────────────────────────────────────────────────────── */
 .page-header {
     border-bottom: 2px solid var(--sand-dark);

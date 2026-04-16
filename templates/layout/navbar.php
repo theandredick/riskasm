@@ -64,6 +64,13 @@ Session::start();
                             <?= htmlspecialchars(ucfirst(Session::userRole() ?? '')) ?>
                         </div>
                         <hr class="navbar-divider">
+                        <a class="navbar-item" href="/profile">
+                            <span class="icon-text">
+                                <span class="icon"><i class="fas fa-id-card"></i></span>
+                                <span>My Profile</span>
+                            </span>
+                        </a>
+                        <hr class="navbar-divider">
                         <?php if (Session::userRole() === 'admin'): ?>
                         <a class="navbar-item" href="/admin/users">
                             <span class="icon-text">

@@ -98,6 +98,32 @@ class User
         );
     }
 
+    public static function updateProfile(int $id, string $displayName, string $email): void
+    {
+        Database::execute(
+            'UPDATE users SET display_name = :name, email = :email, updated_at = NOW() WHERE id = :id',
+            ['name' => trim($displayName), 'email' => strtolower(trim($email)), 'id' => $id]
+        );
+    }
+
+    /** Count active admin users. */
+    public static function countAdmins(): int
+    {
+        return (int) Database::fetchScalar(
+            "SELECT COUNT(*) FROM users WHERE role = 'admin' AND is_active = TRUE"
+        );
+    }
+
+    /** Returns true if the given user is the sole active admin. */
+    public static function isLastAdmin(int $id): bool
+    {
+        if (self::countAdmins() > 1) {
+            return false;
+        }
+        $user = self::findById($id);
+        return $user !== null && $user['role'] === 'admin' && (bool) $user['is_active'];
+    }
+
     public static function verifyPassword(array $user, string $password): bool
     {
         return password_verify($password, $user['password_hash']);

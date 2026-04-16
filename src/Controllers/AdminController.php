@@ -71,6 +71,12 @@ class AdminController
             return Response::redirect('/admin/users');
         }
 
+        // Prevent disabling the last active admin
+        if ($user['is_active'] && User::isLastAdmin($id)) {
+            Session::flash('error', 'Cannot disable the last active admin account.');
+            return Response::redirect('/admin/users');
+        }
+
         User::setActive($id, !$user['is_active']);
 
         $state = $user['is_active'] ? 'disabled' : 'enabled';
@@ -107,6 +113,12 @@ class AdminController
         // Prevent removing admin role from yourself
         if ($id === Session::userId() && $role !== 'admin') {
             Session::flash('error', 'You cannot change your own admin role.');
+            return Response::redirect('/admin/users');
+        }
+
+        // Prevent demoting the last admin
+        if ($user['role'] === 'admin' && $role !== 'admin' && User::isLastAdmin($id)) {
+            Session::flash('error', 'Cannot change the role of the last admin account.');
             return Response::redirect('/admin/users');
         }
 
@@ -160,15 +172,18 @@ class AdminController
         }
 
         if (!empty($errors)) {
-            return Response::html(View::render('admin/create-user', [
-                'pageTitle' => 'Create User',
-                'errors'    => $errors,
-                'old'       => $data,
-                'roles'     => User::ROLES,
+            $users = User::all('display_name ASC');
+            return Response::html(View::render('admin/users', [
+                'pageTitle'    => 'User Management',
+                'users'        => $users,
+                'roles'        => User::ROLES,
+                'modal_open'   => true,
+                'modal_errors' => $errors,
+                'modal_old'    => $data,
             ]));
         }
 
-        $newUser = User::create($data['email'], $data['display_name'], $data['password'], $data['role']);
+        User::create($data['email'], $data['display_name'], $data['password'], $data['role']);
         Session::flash('success', "User \"{$data['display_name']}\" has been created.");
 
         return Response::redirect('/admin/users');

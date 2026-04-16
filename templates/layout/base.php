@@ -26,6 +26,6 @@ Session::start();
     </div>
 </section>
 
-<script src="/assets/js/app.js" type="module"></script>
+<script src="/assets/js/app.js" defer></script>
 </body>
 </html>

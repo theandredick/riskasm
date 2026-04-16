@@ -25,6 +25,10 @@ $router->add('POST', '/auth/reset-password/{token}',   'AuthController@resetPass
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 $router->add('GET', '/', 'DashboardController@index');
 
+// ── Profile ───────────────────────────────────────────────────────────────────
+$router->add('GET',  '/profile', 'ProfileController@show');
+$router->add('POST', '/profile', 'ProfileController@update');
+
 // ── Assessments ───────────────────────────────────────────────────────────────
 $router->add('GET',  '/assessments',                         'AssessmentController@index');
 $router->add('GET',  '/assessments/new',                     'AssessmentController@create');

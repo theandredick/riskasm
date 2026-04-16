@@ -5,6 +5,35 @@ Format: `## [version or milestone] — YYYY-MM-DD`
 
 ---
 
+## [Phase 1 — 5.2 Profile, UX & Mobile] — 2026-04-15
+
+### Added
+- **My Profile page** (`/profile`) — logged-in users can update their display name, email, and password (current-password verification required for password changes); session name kept in sync; remember-me tokens invalidated on password change
+- **ProfileController** (`src/Controllers/ProfileController.php`) — `show` and `update` actions
+- **Profile template** (`templates/profile/edit.php`) — two-panel form (account details + optional password change)
+- **Profile link** in the navbar user-account dropdown (visible to all roles)
+
+### Changed
+- **User Management page** — "Create User" now opens as a Bulma modal; no page navigation required. On validation error the modal re-opens with field errors intact.
+- **User table** — live client-side search/filter input (shown when > 5 users); mobile-responsive columns (email/status/last-login hidden on small screens, shown inline below the name)
+- **Disable button** restyled to calm red (`is-danger-muted`) instead of amber warning
+- **Navbar** — mobile hamburger now correctly colours the expanded menu in Ocean Blue; user-account dropdown responds to tap on mobile (was hover-only); nav links close the mobile menu on tap
+- **`public_html/assets/js/app.js`** — replaced `type="module"` with `defer` for reliable DOM-ready behaviour; added modal, search-filter, and mobile-tap handlers
+- **`public_html/assets/css/app.css`** — added `.is-danger-muted`, mobile navbar media-query overrides, modal responsive sizing
+
+### Security
+- **Last-admin guard** — `toggleUser` and `updateRole` now refuse actions that would leave zero active admin accounts (`User::isLastAdmin()`)
+
+### Files involved
+- `src/Controllers/ProfileController.php` (new)
+- `src/Controllers/AdminController.php`, `src/Models/User.php`
+- `src/Config/routes.php`
+- `templates/profile/edit.php` (new)
+- `templates/admin/users.php`, `templates/layout/navbar.php`, `templates/layout/base.php`
+- `public_html/assets/css/app.css`, `public_html/assets/js/app.js`
+
+---
+
 ## [Phase 1 — 5.1 User Authentication] — 2026-04-10
 
 ### Added
