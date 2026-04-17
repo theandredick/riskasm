@@ -54,7 +54,6 @@ function dimensionBadge(array $m): string
         <span class="icon has-text-grey"><i class="fas fa-shield-halved"></i></span>
         <span>Standard Industry Matrices</span>
     </span>
-    <span class="tag is-ocean ml-2"><?= count($systemMatrices) ?></span>
 </h2>
 
 <div class="columns is-multiline mb-5">
@@ -71,14 +70,14 @@ function dimensionBadge(array $m): string
                         <span class="tag is-ocean is-small">System</span>
                     </div>
                 </div>
-                <p class="is-size-7 has-text-grey" style="line-height:1.5;">
+                <p class="is-size-7 has-text-grey-dark" style="line-height:1.5;">
                     <?= htmlspecialchars($m['description'] ?? '') ?>
                 </p>
                 <p class="mt-2 is-size-7">
                     <span class="has-text-weight-semibold has-text-ocean">
                         <?= htmlspecialchars($m['severity_axis_label']) ?>
                     </span>
-                    <span class="has-text-grey mx-1">×</span>
+                    <span class="has-text-grey-dark mx-1">×</span>
                     <span class="has-text-weight-semibold has-text-ocean">
                         <?= htmlspecialchars($m['likelihood_axis_label']) ?>
                     </span>
@@ -131,7 +130,7 @@ function dimensionBadge(array $m): string
                         <?php endif; ?>
                     </div>
                 </div>
-                <p class="is-size-7 has-text-grey" style="line-height:1.5;">
+                <p class="is-size-7 has-text-grey-dark" style="line-height:1.5;">
                     <?= htmlspecialchars($m['description'] ?? '—') ?>
                 </p>
             </div>
