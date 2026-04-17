@@ -6,6 +6,7 @@ Session::start();
 
 $matrix     = $matrix     ?? [];
 $csrf       = $csrf       ?? '';
+$canClone   = $canClone   ?? false;
 
 $m          = $matrix;
 $sevLevels  = $m['severity_levels']  ?? [];
@@ -59,6 +60,7 @@ function textColorFor(string $hex): string
     </div>
     <div class="level-right">
         <div class="level-item" style="gap:0.5rem;display:flex;">
+            <?php if ($canClone): ?>
             <!-- Clone button — opens naming modal -->
             <button class="button is-link js-clone-btn"
                     type="button"
@@ -73,6 +75,7 @@ function textColorFor(string $hex): string
                 <span class="icon"><i class="fas fa-pencil"></i></span>
                 <span>Edit</span>
             </a>
+            <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
@@ -330,6 +333,7 @@ function textColorFor(string $hex): string
             This matrix uses ordinal (non-numeric) risk rankings assigned per ATP 5-19 doctrine.
             <?php endif; ?>
             System matrices are read-only.
+            <?php if ($canClone): ?>
             <a href="#"
                class="js-clone-btn"
                data-matrix-id="<?= $m['id'] ?>"
@@ -338,10 +342,14 @@ function textColorFor(string $hex): string
                 Clone this matrix
             </a>
             to create your own editable version.
+            <?php else: ?>
+            Contact an administrator to clone this matrix to your account.
+            <?php endif; ?>
         </span>
     </span>
 </div>
 
+<?php if ($canClone): ?>
 <!-- ── Clone naming modal ──────────────────────────────────────────────────── -->
 <div id="cloneNameModal" class="modal">
     <div class="modal-background" id="cloneModalBg"></div>
@@ -388,7 +396,9 @@ function textColorFor(string $hex): string
     <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf) ?>">
     <input type="hidden" id="cloneNameHidden" name="clone_name" value="">
 </form>
+<?php endif; ?>
 
+<?php if ($canClone): ?>
 <script>
 (function () {
     const modal      = document.getElementById('cloneNameModal');
@@ -444,6 +454,7 @@ function textColorFor(string $hex): string
     });
 }());
 </script>
+<?php endif; ?>
 
 <style>
 /* ── Matrix grid ──────────────────────────────────────────────────────────── */

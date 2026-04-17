@@ -4,7 +4,8 @@ use App\Helpers\Csrf;
 
 Session::start();
 
-$matrices = $matrices ?? [];
+$matrices  = $matrices  ?? [];
+$canClone  = $canClone  ?? false;
 
 // Partition into system and user-owned
 $systemMatrices = array_filter($matrices, fn($m) => $m['is_system']);
@@ -35,6 +36,7 @@ function dimensionBadge(array $m): string
             </div>
         </div>
     </div>
+    <?php if ($canClone): ?>
     <div class="level-right">
         <div class="level-item">
             <a class="button is-link is-light" title="Custom matrix builder — coming in Phase 2" href="/matrices/new">
@@ -43,6 +45,7 @@ function dimensionBadge(array $m): string
             </a>
         </div>
     </div>
+    <?php endif; ?>
 </div>
 
 <!-- ── System matrices ─────────────────────────────────────────────────────── -->
@@ -85,6 +88,7 @@ function dimensionBadge(array $m): string
                     <span class="icon"><i class="fas fa-eye"></i></span>
                     <span>View</span>
                 </a>
+                <?php if ($canClone): ?>
                 <button class="button is-teal is-small js-clone-btn"
                         type="button"
                         data-matrix-id="<?= $m['id'] ?>"
@@ -93,6 +97,7 @@ function dimensionBadge(array $m): string
                     <span class="icon"><i class="fas fa-copy"></i></span>
                     <span>Clone</span>
                 </button>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -136,6 +141,7 @@ function dimensionBadge(array $m): string
                     <span class="icon"><i class="fas fa-eye"></i></span>
                     <span>View</span>
                 </a>
+                <?php if ($canClone): ?>
                 <a class="button is-info is-small is-outlined" href="/matrices/<?= $m['id'] ?>/edit">
                     <span class="icon"><i class="fas fa-pencil"></i></span>
                     <span>Edit</span>
@@ -155,6 +161,7 @@ function dimensionBadge(array $m): string
                         <span class="icon"><i class="fas fa-trash"></i></span>
                     </button>
                 </form>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -173,6 +180,7 @@ function dimensionBadge(array $m): string
 </div>
 <?php endif; ?>
 
+<?php if ($canClone): ?>
 <!-- ── Clone naming modal ──────────────────────────────────────────────────── -->
 <div id="cloneNameModal" class="modal">
     <div class="modal-background" id="cloneModalBg"></div>
@@ -219,6 +227,7 @@ function dimensionBadge(array $m): string
     <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::token()) ?>">
     <input type="hidden" id="cloneNameHidden" name="clone_name" value="">
 </form>
+<?php endif; ?>
 
 <style>
 .button.is-teal {
@@ -240,6 +249,7 @@ function dimensionBadge(array $m): string
 }
 </style>
 
+<?php if ($canClone): ?>
 <script>
 (function () {
     const modal       = document.getElementById('cloneNameModal');
@@ -300,3 +310,4 @@ function dimensionBadge(array $m): string
     });
 }());
 </script>
+<?php endif; ?>

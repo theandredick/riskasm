@@ -11,6 +11,7 @@ use App\Helpers\Csrf;
 use App\Helpers\View;
 use App\Models\RiskMatrix;
 use App\Middleware\AuthMiddleware;
+use App\Middleware\RoleMiddleware;
 
 class MatrixController
 {
@@ -25,12 +26,14 @@ class MatrixController
         }
 
         Session::start();
-        $userId  = (int) Session::get('user_id');
+        $userId   = (int) Session::get('user_id');
         $matrices = RiskMatrix::findAllForUser($userId);
+        $canClone = RoleMiddleware::require('assessor') === null;
 
         return Response::html(View::render('matrices/index', [
             'pageTitle' => 'Risk Matrices',
             'matrices'  => $matrices,
+            'canClone'  => $canClone,
         ]));
     }
 
@@ -45,8 +48,9 @@ class MatrixController
         }
 
         Session::start();
-        $userId = (int) Session::get('user_id');
-        $id     = (int) $request->param('id');
+        $userId   = (int) Session::get('user_id');
+        $id       = (int) $request->param('id');
+        $canClone = RoleMiddleware::require('assessor') === null;
 
         $matrix = RiskMatrix::fullData($id, $userId);
 
@@ -59,17 +63,22 @@ class MatrixController
             'pageTitle' => $matrix['name'],
             'matrix'    => $matrix,
             'csrf'      => Csrf::token(),
+            'canClone'  => $canClone,
         ]));
     }
 
     /**
      * POST /matrices/{id}/copy
-     * Clone a matrix to create a user-owned editable copy.
+     * Clone a matrix to create a user-owned editable copy. Requires assessor+.
      */
     public function copy(Request $request): Response
     {
         if ($redirect = AuthMiddleware::require($request)) {
             return $redirect;
+        }
+
+        if ($denied = RoleMiddleware::require('assessor')) {
+            return $denied;
         }
 
         Session::start();
@@ -98,12 +107,16 @@ class MatrixController
 
     /**
      * POST /matrices/{id}/delete
-     * Delete a user-owned matrix (system matrices are protected).
+     * Delete a user-owned matrix (system matrices are protected). Requires assessor+.
      */
     public function destroy(Request $request): Response
     {
         if ($redirect = AuthMiddleware::require($request)) {
             return $redirect;
+        }
+
+        if ($denied = RoleMiddleware::require('assessor')) {
+            return $denied;
         }
 
         Session::start();
@@ -141,6 +154,11 @@ class MatrixController
         if ($redirect = AuthMiddleware::require($request)) {
             return $redirect;
         }
+
+        if ($denied = RoleMiddleware::require('assessor')) {
+            return $denied;
+        }
+
         Session::flash('info', 'The custom matrix builder is coming in Phase 2.');
         return Response::redirect('/matrices');
     }
