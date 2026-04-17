@@ -10,9 +10,6 @@ $matrices = $matrices ?? [];
 $systemMatrices = array_filter($matrices, fn($m) => $m['is_system']);
 $ownedMatrices  = array_filter($matrices, fn($m) => !$m['is_system'] && (int)$m['owner_id'] === (int)Session::get('user_id'));
 
-/**
- * Returns a teal badge for a dimension count like "5×5".
- */
 function dimensionBadge(array $m): string
 {
     $s = (int) $m['severity_count'];
@@ -83,19 +80,19 @@ function dimensionBadge(array $m): string
                     </span>
                 </p>
             </div>
-            <div class="mt-4 is-flex is-gap-2" style="gap:0.5rem;">
+            <div class="mt-4 is-flex" style="gap:0.5rem;">
                 <a class="button is-link is-small is-outlined" href="/matrices/<?= $m['id'] ?>">
                     <span class="icon"><i class="fas fa-eye"></i></span>
                     <span>View</span>
                 </a>
-                <form method="POST" action="/matrices/<?= $m['id'] ?>/copy" style="display:inline;">
-                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::token()) ?>">
-                    <button class="button is-teal is-small" type="submit"
-                            title="Create your own editable copy of this matrix">
-                        <span class="icon"><i class="fas fa-copy"></i></span>
-                        <span>Clone</span>
-                    </button>
-                </form>
+                <button class="button is-teal is-small js-clone-btn"
+                        type="button"
+                        data-matrix-id="<?= $m['id'] ?>"
+                        data-matrix-name="<?= htmlspecialchars($m['name'], ENT_QUOTES) ?>"
+                        title="Create your own editable copy of this matrix">
+                    <span class="icon"><i class="fas fa-copy"></i></span>
+                    <span>Clone</span>
+                </button>
             </div>
         </div>
     </div>
@@ -143,13 +140,13 @@ function dimensionBadge(array $m): string
                     <span class="icon"><i class="fas fa-pencil"></i></span>
                     <span>Edit</span>
                 </a>
-                <form method="POST" action="/matrices/<?= $m['id'] ?>/copy" style="display:inline;">
-                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::token()) ?>">
-                    <button class="button is-small" type="submit">
-                        <span class="icon"><i class="fas fa-copy"></i></span>
-                        <span>Clone</span>
-                    </button>
-                </form>
+                <button class="button is-small js-clone-btn"
+                        type="button"
+                        data-matrix-id="<?= $m['id'] ?>"
+                        data-matrix-name="<?= htmlspecialchars($m['name'], ENT_QUOTES) ?>">
+                    <span class="icon"><i class="fas fa-copy"></i></span>
+                    <span>Clone</span>
+                </button>
                 <form method="POST" action="/matrices/<?= $m['id'] ?>/delete"
                       style="display:inline;"
                       onsubmit="return confirm('Delete this matrix? This cannot be undone.');">
@@ -164,7 +161,6 @@ function dimensionBadge(array $m): string
     <?php endforeach; ?>
 </div>
 <?php else: ?>
-<!-- Empty state for custom matrices -->
 <div class="box has-background-light has-text-centered py-5">
     <p class="has-text-grey mb-2">
         <span class="icon is-large"><i class="fas fa-wand-magic-sparkles fa-2x has-text-grey-light"></i></span>
@@ -176,6 +172,53 @@ function dimensionBadge(array $m): string
     </p>
 </div>
 <?php endif; ?>
+
+<!-- ── Clone naming modal ──────────────────────────────────────────────────── -->
+<div id="cloneNameModal" class="modal">
+    <div class="modal-background" id="cloneModalBg"></div>
+    <div class="modal-card" style="max-width:480px;">
+        <header class="modal-card-head" style="background-color:var(--ocean);border-bottom:none;">
+            <p class="modal-card-title" style="color:#fff;font-family:'Montserrat',system-ui,sans-serif;font-size:1rem;">
+                <span class="icon-text">
+                    <span class="icon"><i class="fas fa-copy"></i></span>
+                    <span>Clone Matrix</span>
+                </span>
+            </p>
+            <button class="delete js-close-clone-modal" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+            <p class="is-size-6 mb-4" style="color:var(--text);">
+                What would you like to name your custom version?
+            </p>
+            <div class="field">
+                <label class="label" for="cloneNameInput">Matrix Name</label>
+                <div class="control has-icons-left">
+                    <input id="cloneNameInput"
+                           class="input"
+                           type="text"
+                           maxlength="120"
+                           autocomplete="off"
+                           placeholder="e.g. My 5×5 Project Matrix">
+                    <span class="icon is-left"><i class="fas fa-tag"></i></span>
+                </div>
+                <p class="help">You can rename it again later.</p>
+            </div>
+        </section>
+        <footer class="modal-card-foot" style="justify-content:flex-end;gap:0.5rem;">
+            <button class="button js-close-clone-modal" type="button">Cancel</button>
+            <button id="cloneConfirmBtn" class="button is-link" type="button">
+                <span class="icon"><i class="fas fa-copy"></i></span>
+                <span>Create Clone</span>
+            </button>
+        </footer>
+    </div>
+</div>
+
+<!-- Hidden form used by the modal to submit the clone request -->
+<form id="cloneSubmitForm" method="POST" style="display:none;">
+    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Csrf::token()) ?>">
+    <input type="hidden" id="cloneNameHidden" name="clone_name" value="">
+</form>
 
 <style>
 .button.is-teal {
@@ -196,3 +239,64 @@ function dimensionBadge(array $m): string
     box-shadow: 0 4px 16px rgba(0,63,92,0.12);
 }
 </style>
+
+<script>
+(function () {
+    const modal       = document.getElementById('cloneNameModal');
+    const nameInput   = document.getElementById('cloneNameInput');
+    const hiddenName  = document.getElementById('cloneNameHidden');
+    const confirmBtn  = document.getElementById('cloneConfirmBtn');
+    const submitForm  = document.getElementById('cloneSubmitForm');
+
+    function openModal(matrixId, matrixName) {
+        const suggested = 'Copy of ' + matrixName;
+        nameInput.value = suggested;
+        submitForm.action = '/matrices/' + matrixId + '/copy';
+        modal.classList.add('is-active');
+        // Select all so the user can immediately type a new name
+        nameInput.select();
+    }
+
+    function closeModal() {
+        modal.classList.remove('is-active');
+        nameInput.value = '';
+    }
+
+    // Open modal on any Clone button click
+    document.querySelectorAll('.js-clone-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            openModal(btn.dataset.matrixId, btn.dataset.matrixName);
+        });
+    });
+
+    // Close on background / X / Cancel
+    document.getElementById('cloneModalBg').addEventListener('click', closeModal);
+    document.querySelectorAll('.js-close-clone-modal').forEach(function (el) {
+        el.addEventListener('click', closeModal);
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modal.classList.contains('is-active')) closeModal();
+    });
+
+    // Confirm: copy name to hidden field then submit
+    confirmBtn.addEventListener('click', function () {
+        const name = nameInput.value.trim();
+        if (!name) {
+            nameInput.classList.add('is-danger');
+            nameInput.focus();
+            return;
+        }
+        nameInput.classList.remove('is-danger');
+        hiddenName.value = name;
+        submitForm.submit();
+    });
+
+    // Allow Enter key in the name field to confirm
+    nameInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); confirmBtn.click(); }
+    });
+    nameInput.addEventListener('input', function () {
+        nameInput.classList.remove('is-danger');
+    });
+}());
+</script>

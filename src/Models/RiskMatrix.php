@@ -238,14 +238,17 @@ class RiskMatrix
      * Clone an existing matrix into a new user-owned copy.
      * Copies: matrix record, levels, bands, cells, consequence categories
      * and level category descriptions.
+     * Pass $name to override the default "Copy of …" title.
      * Returns the new matrix ID.
      */
-    public static function cloneForUser(int $sourceId, int $userId): int
+    public static function cloneForUser(int $sourceId, int $userId, ?string $name = null): int
     {
         $src = self::find($sourceId);
         if ($src === null) {
             throw new \RuntimeException("Source matrix {$sourceId} not found.");
         }
+
+        $cloneName = ($name !== null && $name !== '') ? $name : 'Copy of ' . $src['name'];
 
         Database::beginTransaction();
 
@@ -257,7 +260,7 @@ class RiskMatrix
                  VALUES (?, ?, ?, ?, ?, FALSE, FALSE)',
                 [
                     $userId,
-                    'Copy of ' . $src['name'],
+                    $cloneName,
                     $src['description'],
                     $src['severity_axis_label'],
                     $src['likelihood_axis_label'],

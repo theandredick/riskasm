@@ -59,15 +59,15 @@ function textColorFor(string $hex): string
     </div>
     <div class="level-right">
         <div class="level-item" style="gap:0.5rem;display:flex;">
-            <!-- Clone button -->
-            <form method="POST" action="/matrices/<?= $m['id'] ?>/copy">
-                <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf) ?>">
-                <button class="button is-link" type="submit"
-                        title="Create your own editable copy of this matrix">
-                    <span class="icon"><i class="fas fa-copy"></i></span>
-                    <span>Clone Matrix</span>
-                </button>
-            </form>
+            <!-- Clone button — opens naming modal -->
+            <button class="button is-link js-clone-btn"
+                    type="button"
+                    data-matrix-id="<?= $m['id'] ?>"
+                    data-matrix-name="<?= htmlspecialchars($m['name'], ENT_QUOTES) ?>"
+                    title="Create your own editable copy of this matrix">
+                <span class="icon"><i class="fas fa-copy"></i></span>
+                <span>Clone Matrix</span>
+            </button>
             <?php if ($isOwner && !$isSystem): ?>
             <a class="button is-info is-outlined" href="/matrices/<?= $m['id'] ?>/edit">
                 <span class="icon"><i class="fas fa-pencil"></i></span>
@@ -326,11 +326,15 @@ function textColorFor(string $hex): string
             value ×
             <strong><?= htmlspecialchars($m['likelihood_axis_label']) ?></strong>
             value.
-            <?php if (in_array($m['name'], ['U.S. Army ATP 5-19 4×5'])): ?>
+            <?php if ($m['name'] === 'U.S. Army ATP 5-19 4×5'): ?>
             This matrix uses ordinal (non-numeric) risk rankings assigned per ATP 5-19 doctrine.
             <?php endif; ?>
             System matrices are read-only.
-            <a href="#" onclick="event.preventDefault();document.querySelector('.clone-form').submit();">
+            <a href="#"
+               class="js-clone-btn"
+               data-matrix-id="<?= $m['id'] ?>"
+               data-matrix-name="<?= htmlspecialchars($m['name'], ENT_QUOTES) ?>"
+               onclick="event.preventDefault();">
                 Clone this matrix
             </a>
             to create your own editable version.
@@ -338,10 +342,108 @@ function textColorFor(string $hex): string
     </span>
 </div>
 
-<!-- Hidden clone form for the info note link -->
-<form class="clone-form" method="POST" action="/matrices/<?= $m['id'] ?>/copy" style="display:none;">
+<!-- ── Clone naming modal ──────────────────────────────────────────────────── -->
+<div id="cloneNameModal" class="modal">
+    <div class="modal-background" id="cloneModalBg"></div>
+    <div class="modal-card" style="max-width:480px;">
+        <header class="modal-card-head" style="background-color:var(--ocean);border-bottom:none;">
+            <p class="modal-card-title" style="color:#fff;font-family:'Montserrat',system-ui,sans-serif;font-size:1rem;">
+                <span class="icon-text">
+                    <span class="icon"><i class="fas fa-copy"></i></span>
+                    <span>Clone Matrix</span>
+                </span>
+            </p>
+            <button class="delete js-close-clone-modal" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+            <p class="is-size-6 mb-4" style="color:var(--text);">
+                What would you like to name your custom version?
+            </p>
+            <div class="field">
+                <label class="label" for="cloneNameInput">Matrix Name</label>
+                <div class="control has-icons-left">
+                    <input id="cloneNameInput"
+                           class="input"
+                           type="text"
+                           maxlength="120"
+                           autocomplete="off"
+                           placeholder="e.g. My 5×5 Project Matrix">
+                    <span class="icon is-left"><i class="fas fa-tag"></i></span>
+                </div>
+                <p class="help">You can rename it again later.</p>
+            </div>
+        </section>
+        <footer class="modal-card-foot" style="justify-content:flex-end;gap:0.5rem;">
+            <button class="button js-close-clone-modal" type="button">Cancel</button>
+            <button id="cloneConfirmBtn" class="button is-link" type="button">
+                <span class="icon"><i class="fas fa-copy"></i></span>
+                <span>Create Clone</span>
+            </button>
+        </footer>
+    </div>
+</div>
+
+<!-- Hidden form used by the modal -->
+<form id="cloneSubmitForm" method="POST" style="display:none;">
     <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf) ?>">
+    <input type="hidden" id="cloneNameHidden" name="clone_name" value="">
 </form>
+
+<script>
+(function () {
+    const modal      = document.getElementById('cloneNameModal');
+    const nameInput  = document.getElementById('cloneNameInput');
+    const hiddenName = document.getElementById('cloneNameHidden');
+    const confirmBtn = document.getElementById('cloneConfirmBtn');
+    const submitForm = document.getElementById('cloneSubmitForm');
+
+    function openModal(matrixId, matrixName) {
+        nameInput.value = 'Copy of ' + matrixName;
+        submitForm.action = '/matrices/' + matrixId + '/copy';
+        modal.classList.add('is-active');
+        nameInput.select();
+    }
+
+    function closeModal() {
+        modal.classList.remove('is-active');
+        nameInput.value = '';
+    }
+
+    document.querySelectorAll('.js-clone-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            openModal(btn.dataset.matrixId, btn.dataset.matrixName);
+        });
+    });
+
+    document.getElementById('cloneModalBg').addEventListener('click', closeModal);
+    document.querySelectorAll('.js-close-clone-modal').forEach(function (el) {
+        el.addEventListener('click', closeModal);
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modal.classList.contains('is-active')) closeModal();
+    });
+
+    confirmBtn.addEventListener('click', function () {
+        const name = nameInput.value.trim();
+        if (!name) {
+            nameInput.classList.add('is-danger');
+            nameInput.focus();
+            return;
+        }
+        nameInput.classList.remove('is-danger');
+        hiddenName.value = name;
+        submitForm.submit();
+    });
+
+    nameInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); confirmBtn.click(); }
+    });
+    nameInput.addEventListener('input', function () {
+        nameInput.classList.remove('is-danger');
+    });
+}());
+</script>
 
 <style>
 /* ── Matrix grid ──────────────────────────────────────────────────────────── */

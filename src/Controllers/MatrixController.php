@@ -84,8 +84,10 @@ class MatrixController
             return Response::redirect('/matrices');
         }
 
+        $cloneName = trim($request->input('clone_name', ''));
+
         try {
-            $newId = RiskMatrix::cloneForUser($id, $userId);
+            $newId = RiskMatrix::cloneForUser($id, $userId, $cloneName ?: null);
             Session::flash('success', 'Matrix cloned successfully. You can now customise your copy.');
             return Response::redirect("/matrices/{$newId}");
         } catch (\Throwable $e) {
