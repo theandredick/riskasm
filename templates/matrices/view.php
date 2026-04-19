@@ -81,244 +81,260 @@ function textColorFor(string $hex): string
     </div>
 </div>
 
-<!-- ── Two-column layout: grid on left, bands legend on right ─────────────── -->
-<div class="columns is-desktop">
+<!-- ── Page content: sticky grid+bands, then scrollable reference tables ────── -->
+<div class="matrix-page-wrapper">
 
-    <!-- ── Left: matrix grid ──────────────────────────────────────────────── -->
-    <div class="column matrix-grid-column">
-        <div class="box p-4">
-            <h2 class="title is-6 mb-3">
-                <span class="icon-text">
-                    <span class="icon has-text-teal"><i class="fas fa-table-cells-large"></i></span>
-                    <span>Risk Matrix Grid</span>
-                </span>
-            </h2>
+    <!-- ── Sticky top: matrix grid + risk bands ───────────────────────────── -->
+    <div class="matrix-sticky-header">
+        <div class="columns is-desktop mb-0">
 
-            <?php if (empty($sevLevels) || empty($likLevels)): ?>
-            <p class="has-text-grey">Matrix data not available.</p>
-            <?php else: ?>
-
-            <!-- Axis labels -->
-            <p class="is-size-7 has-text-grey mb-1">
-                <strong class="has-text-ocean"><?= htmlspecialchars($m['severity_axis_label']) ?></strong>
-                (rows, highest at top) ×
-                <strong class="has-text-ocean"><?= htmlspecialchars($m['likelihood_axis_label']) ?></strong>
-                (columns, lowest at left)
-            </p>
-
-            <div class="matrix-grid-wrapper">
-                <table class="matrix-grid-table">
-                    <thead>
-                        <tr>
-                            <!-- Top-left corner: axis label -->
-                            <th class="matrix-corner">
-                                <div class="matrix-corner-sev"><?= htmlspecialchars($m['severity_axis_label']) ?></div>
-                                <div class="matrix-corner-lik"><?= htmlspecialchars($m['likelihood_axis_label']) ?></div>
-                            </th>
-                            <?php foreach ($likLevels as $lik): ?>
-                            <th class="matrix-axis-cell matrix-lik-header"
-                                title="<?= htmlspecialchars($lik['description'] ?? '') ?>">
-                                <div class="matrix-level-val"><?= $lik['level_value'] ?></div>
-                                <div class="matrix-level-label"><?= htmlspecialchars($lik['label']) ?></div>
-                                <?php if ($lik['one_word'] && $lik['one_word'] !== $lik['label']): ?>
-                                <div class="matrix-level-word"><?= htmlspecialchars($lik['one_word']) ?></div>
-                                <?php endif; ?>
-                                <?php if ($lik['quantitative_range']): ?>
-                                <div class="matrix-level-quant"><?= htmlspecialchars($lik['quantitative_range']) ?></div>
-                                <?php endif; ?>
-                            </th>
-                            <?php endforeach; ?>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php
-                        // Render severity rows highest → lowest (most severe at top)
-                        $sevDesc = array_reverse($sevLevels);
-                        foreach ($sevDesc as $sev):
-                        ?>
-                        <tr>
-                            <th class="matrix-axis-cell matrix-sev-header"
-                                title="<?= htmlspecialchars($sev['description'] ?? '') ?>">
-                                <div class="matrix-level-val"><?= $sev['level_value'] ?></div>
-                                <div class="matrix-level-label"><?= htmlspecialchars($sev['label']) ?></div>
-                                <?php if ($sev['one_word'] && $sev['one_word'] !== $sev['label']): ?>
-                                <div class="matrix-level-word"><?= htmlspecialchars($sev['one_word']) ?></div>
-                                <?php endif; ?>
-                            </th>
-                            <?php foreach ($likLevels as $lik):
-                                $cell = $getCell((int)$sev['level_value'], (int)$lik['level_value']);
-                                $bg   = $cell['colour_hex']  ?? '#cccccc';
-                                $cat  = $cell['risk_category'] ?? '—';
-                                $score = $cell['numeric_score'] ?? '';
-                                $fg   = textColorFor($bg);
-                                $bandName = htmlspecialchars($cell['band_short_description'] ?? $cat);
-                            ?>
-                            <td class="matrix-risk-cell"
-                                style="background-color:<?= $bg ?>;color:<?= $fg ?>;"
-                                data-bs-toggle="tooltip"
-                                title="S<?= $sev['level_value'] ?>×L<?= $lik['level_value'] ?> = <?= $score ?> | <?= htmlspecialchars($cat) ?>"
-                                <?php if ($isSystem): ?>data-readonly="true"<?php endif; ?>>
-                                <div class="matrix-risk-label"><?= htmlspecialchars($cat) ?></div>
-                                <?php if ($score !== ''): ?>
-                                <div class="matrix-risk-score"><?= $score ?></div>
-                                <?php endif; ?>
-                            </td>
-                            <?php endforeach; ?>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-
-            <?php endif; ?>
-        </div>
-    </div>
-
-    <!-- ── Right: risk bands legend + reference tables ─────────────────────── -->
-    <div class="column is-two-fifths-desktop">
-        <div class="box p-4 mb-4">
-            <h2 class="title is-6 mb-3">
-                <span class="icon-text">
-                    <span class="icon has-text-teal"><i class="fas fa-bars"></i></span>
-                    <span>Risk Bands</span>
-                </span>
-            </h2>
-            <?php if (empty($bands)): ?>
-            <p class="has-text-grey is-size-7">No bands defined.</p>
-            <?php else: ?>
-            <div class="risk-bands-list">
-                <?php foreach ($bands as $band): ?>
-                <?php
-                    $bg = $band['colour_hex'];
-                    $fg = textColorFor($bg);
-                ?>
-                <div class="risk-band-row mb-3">
-                    <div class="risk-band-swatch"
-                         style="background-color:<?= $bg ?>;color:<?= $fg ?>;">
-                        <span class="band-label"><?= htmlspecialchars($band['band_label']) ?></span>
-                        <span class="band-name">
-                            <?= htmlspecialchars($band['band_name']) ?>
+            <!-- Left: matrix grid -->
+            <div class="column">
+                <div class="box p-4">
+                    <h2 class="title is-6 mb-3">
+                        <span class="icon-text">
+                            <span class="icon has-text-teal"><i class="fas fa-table-cells-large"></i></span>
+                            <span>Risk Matrix Grid</span>
                         </span>
-                        <?php if ($band['score_min'] !== null && $band['score_max'] !== null): ?>
-                        <span class="band-score-range">
-                            <?php
-                                $sMin = (int) $band['score_min'];
-                                $sMax = (int) $band['score_max'];
-                                if ($sMin === $sMax) {
-                                    echo 'Score: ' . $sMin;
-                                } else {
-                                    echo 'Score: ' . $sMin . '–' . $sMax;
-                                }
-                            ?>
-                        </span>
-                        <?php endif; ?>
+                    </h2>
+
+                    <?php if (empty($sevLevels) || empty($likLevels)): ?>
+                    <p class="has-text-grey">Matrix data not available.</p>
+                    <?php else: ?>
+
+                    <!-- Axis labels -->
+                    <p class="is-size-7 has-text-grey mb-1">
+                        <strong class="has-text-ocean"><?= htmlspecialchars($m['severity_axis_label']) ?></strong>
+                        (rows, highest at top) ×
+                        <strong class="has-text-ocean"><?= htmlspecialchars($m['likelihood_axis_label']) ?></strong>
+                        (columns, lowest at left)
+                    </p>
+
+                    <div class="matrix-grid-wrapper">
+                        <table class="matrix-grid-table">
+                            <thead>
+                                <tr>
+                                    <!-- Top-left corner: axis label -->
+                                    <th class="matrix-corner">
+                                        <div class="matrix-corner-sev"><?= htmlspecialchars($m['severity_axis_label']) ?></div>
+                                        <div class="matrix-corner-lik"><?= htmlspecialchars($m['likelihood_axis_label']) ?></div>
+                                    </th>
+                                    <?php foreach ($likLevels as $lik): ?>
+                                    <th class="matrix-axis-cell matrix-lik-header"
+                                        title="<?= htmlspecialchars($lik['description'] ?? '') ?>">
+                                        <div class="matrix-level-val"><?= $lik['level_value'] ?></div>
+                                        <div class="matrix-level-label"><?= htmlspecialchars($lik['label']) ?></div>
+                                        <?php if ($lik['one_word'] && $lik['one_word'] !== $lik['label']): ?>
+                                        <div class="matrix-level-word"><?= htmlspecialchars($lik['one_word']) ?></div>
+                                        <?php endif; ?>
+                                        <?php if ($lik['quantitative_range']): ?>
+                                        <div class="matrix-level-quant"><?= htmlspecialchars($lik['quantitative_range']) ?></div>
+                                        <?php endif; ?>
+                                    </th>
+                                    <?php endforeach; ?>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php
+                                // Render severity rows highest → lowest (most severe at top)
+                                $sevDesc = array_reverse($sevLevels);
+                                foreach ($sevDesc as $sev):
+                                ?>
+                                <tr>
+                                    <th class="matrix-axis-cell matrix-sev-header"
+                                        title="<?= htmlspecialchars($sev['description'] ?? '') ?>">
+                                        <div class="matrix-level-val"><?= $sev['level_value'] ?></div>
+                                        <div class="matrix-level-label"><?= htmlspecialchars($sev['label']) ?></div>
+                                        <?php if ($sev['one_word'] && $sev['one_word'] !== $sev['label']): ?>
+                                        <div class="matrix-level-word"><?= htmlspecialchars($sev['one_word']) ?></div>
+                                        <?php endif; ?>
+                                    </th>
+                                    <?php foreach ($likLevels as $lik):
+                                        $cell = $getCell((int)$sev['level_value'], (int)$lik['level_value']);
+                                        $bg   = $cell['colour_hex']  ?? '#cccccc';
+                                        $cat  = $cell['risk_category'] ?? '—';
+                                        $score = $cell['numeric_score'] ?? '';
+                                        $fg   = textColorFor($bg);
+                                        $bandName = htmlspecialchars($cell['band_short_description'] ?? $cat);
+                                    ?>
+                                    <td class="matrix-risk-cell"
+                                        style="background-color:<?= $bg ?>;color:<?= $fg ?>;"
+                                        data-bs-toggle="tooltip"
+                                        title="S<?= $sev['level_value'] ?>×L<?= $lik['level_value'] ?> = <?= $score ?> | <?= htmlspecialchars($cat) ?>"
+                                        <?php if ($isSystem): ?>data-readonly="true"<?php endif; ?>>
+                                        <div class="matrix-risk-label"><?= htmlspecialchars($cat) ?></div>
+                                        <?php if ($score !== ''): ?>
+                                        <div class="matrix-risk-score"><?= $score ?></div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <?php endforeach; ?>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
                     </div>
-                    <?php if ($band['short_description']): ?>
-                    <p class="is-size-7 has-text-weight-semibold mt-1 mb-0">
-                        <?= htmlspecialchars($band['short_description']) ?>
-                    </p>
-                    <?php endif; ?>
-                    <?php if ($band['full_description']): ?>
-                    <p class="is-size-7 has-text-grey mt-0">
-                        <?= htmlspecialchars($band['full_description']) ?>
-                    </p>
+
                     <?php endif; ?>
                 </div>
-                <?php endforeach; ?>
             </div>
-            <?php endif; ?>
-        </div>
 
-        <!-- ── Likelihood reference table ─────────────────────────────────── -->
-        <?php if (!empty($likLevels)): ?>
-        <div class="box p-4 mb-4">
-            <h2 class="title is-6 mb-3">
-                <span class="icon-text">
-                    <span class="icon has-text-teal"><i class="fas fa-arrow-trend-up"></i></span>
-                    <span><?= htmlspecialchars($m['likelihood_axis_label']) ?> Scale</span>
-                </span>
-            </h2>
-            <div class="table-container">
-                <table class="table is-fullwidth is-hoverable is-narrow ref-table">
-                    <thead>
-                        <tr>
-                            <th style="width:3rem;">#</th>
-                            <th>Level</th>
-                            <?php if (array_filter($likLevels, fn($l) => $l['one_word'] && $l['one_word'] !== $l['label'])): ?>
-                            <th>One Word</th>
-                            <?php endif; ?>
-                            <?php if (array_filter($likLevels, fn($l) => $l['quantitative_range'])): ?>
-                            <th>Frequency / Range</th>
-                            <?php endif; ?>
-                            <th>Description</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+            <!-- Right: risk bands legend -->
+            <div class="column is-one-third-desktop">
+                <div class="box p-4">
+                    <h2 class="title is-6 mb-3">
+                        <span class="icon-text">
+                            <span class="icon has-text-teal"><i class="fas fa-bars"></i></span>
+                            <span>Risk Bands</span>
+                        </span>
+                    </h2>
+                    <?php if (empty($bands)): ?>
+                    <p class="has-text-grey is-size-7">No bands defined.</p>
+                    <?php else: ?>
+                    <div class="risk-bands-list">
+                        <?php foreach ($bands as $band): ?>
                         <?php
-                        $hasOneWord = (bool) array_filter($likLevels, fn($l) => $l['one_word'] && $l['one_word'] !== $l['label']);
-                        $hasQuant   = (bool) array_filter($likLevels, fn($l) => $l['quantitative_range']);
-                        foreach ($likLevels as $lik):
+                            $bg = $band['colour_hex'];
+                            $fg = textColorFor($bg);
                         ?>
-                        <tr>
-                            <td class="has-text-weight-bold has-text-ocean"><?= $lik['level_value'] ?></td>
-                            <td><strong><?= htmlspecialchars($lik['label']) ?></strong></td>
-                            <?php if ($hasOneWord): ?>
-                            <td><?= htmlspecialchars($lik['one_word'] ?? '') ?></td>
+                        <div class="risk-band-row mb-3">
+                            <div class="risk-band-swatch"
+                                 style="background-color:<?= $bg ?>;color:<?= $fg ?>;">
+                                <span class="band-label"><?= htmlspecialchars($band['band_label']) ?></span>
+                                <span class="band-name">
+                                    <?= htmlspecialchars($band['band_name']) ?>
+                                </span>
+                                <?php if ($band['score_min'] !== null && $band['score_max'] !== null): ?>
+                                <span class="band-score-range">
+                                    <?php
+                                        $sMin = (int) $band['score_min'];
+                                        $sMax = (int) $band['score_max'];
+                                        if ($sMin === $sMax) {
+                                            echo 'Score: ' . $sMin;
+                                        } else {
+                                            echo 'Score: ' . $sMin . '–' . $sMax;
+                                        }
+                                    ?>
+                                </span>
+                                <?php endif; ?>
+                            </div>
+                            <?php if ($band['short_description']): ?>
+                            <p class="is-size-7 has-text-weight-semibold mt-1 mb-0">
+                                <?= htmlspecialchars($band['short_description']) ?>
+                            </p>
                             <?php endif; ?>
-                            <?php if ($hasQuant): ?>
-                            <td class="is-family-monospace is-size-7"><?= htmlspecialchars($lik['quantitative_range'] ?? '—') ?></td>
+                            <?php if ($band['full_description']): ?>
+                            <p class="is-size-7 has-text-grey mt-0">
+                                <?= htmlspecialchars($band['full_description']) ?>
+                            </p>
                             <?php endif; ?>
-                            <td class="is-size-7"><?= htmlspecialchars($lik['description'] ?? '—') ?></td>
-                        </tr>
+                        </div>
                         <?php endforeach; ?>
-                    </tbody>
-                </table>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+        </div>
+    </div><!-- /.matrix-sticky-header -->
+
+    <!-- ── Reference tables (full-width, side-by-side on desktop) ────────── -->
+    <?php if (!empty($likLevels) || !empty($sevLevels)): ?>
+    <div class="columns is-desktop mt-4">
+
+        <?php if (!empty($likLevels)): ?>
+        <div class="column">
+            <div class="box p-4">
+                <h2 class="title is-6 mb-3">
+                    <span class="icon-text">
+                        <span class="icon has-text-teal"><i class="fas fa-arrow-trend-up"></i></span>
+                        <span><?= htmlspecialchars($m['likelihood_axis_label']) ?> Scale</span>
+                    </span>
+                </h2>
+                <div class="table-container">
+                    <table class="table is-fullwidth is-hoverable is-narrow ref-table">
+                        <thead>
+                            <tr>
+                                <th style="width:3rem;">#</th>
+                                <th>Level</th>
+                                <?php if (array_filter($likLevels, fn($l) => $l['one_word'] && $l['one_word'] !== $l['label'])): ?>
+                                <th>One Word</th>
+                                <?php endif; ?>
+                                <?php if (array_filter($likLevels, fn($l) => $l['quantitative_range'])): ?>
+                                <th>Frequency / Range</th>
+                                <?php endif; ?>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $hasOneWord = (bool) array_filter($likLevels, fn($l) => $l['one_word'] && $l['one_word'] !== $l['label']);
+                            $hasQuant   = (bool) array_filter($likLevels, fn($l) => $l['quantitative_range']);
+                            foreach ($likLevels as $lik):
+                            ?>
+                            <tr>
+                                <td class="has-text-weight-bold has-text-ocean"><?= $lik['level_value'] ?></td>
+                                <td><strong><?= htmlspecialchars($lik['label']) ?></strong></td>
+                                <?php if ($hasOneWord): ?>
+                                <td><?= htmlspecialchars($lik['one_word'] ?? '') ?></td>
+                                <?php endif; ?>
+                                <?php if ($hasQuant): ?>
+                                <td class="is-family-monospace is-size-7"><?= htmlspecialchars($lik['quantitative_range'] ?? '—') ?></td>
+                                <?php endif; ?>
+                                <td class="is-size-7"><?= htmlspecialchars($lik['description'] ?? '—') ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
         <?php endif; ?>
 
-        <!-- ── Severity / Consequence reference table ─────────────────────── -->
         <?php if (!empty($sevLevels)): ?>
-        <div class="box p-4 mb-4">
-            <h2 class="title is-6 mb-3">
-                <span class="icon-text">
-                    <span class="icon has-text-teal"><i class="fas fa-triangle-exclamation"></i></span>
-                    <span><?= htmlspecialchars($m['severity_axis_label']) ?> / Consequence Descriptions</span>
-                </span>
-            </h2>
-            <div class="table-container">
-                <table class="table is-fullwidth is-hoverable is-narrow ref-table">
-                    <thead>
-                        <tr>
-                            <th style="width:3rem;">#</th>
-                            <th>Level</th>
-                            <th>Description</th>
-                            <?php foreach ($categories as $cat): ?>
-                            <th><?= htmlspecialchars($cat['name']) ?></th>
+        <div class="column">
+            <div class="box p-4">
+                <h2 class="title is-6 mb-3">
+                    <span class="icon-text">
+                        <span class="icon has-text-teal"><i class="fas fa-triangle-exclamation"></i></span>
+                        <span><?= htmlspecialchars($m['severity_axis_label']) ?> / Consequence Descriptions</span>
+                    </span>
+                </h2>
+                <div class="table-container">
+                    <table class="table is-fullwidth is-hoverable is-narrow ref-table">
+                        <thead>
+                            <tr>
+                                <th style="width:3rem;">#</th>
+                                <th>Level</th>
+                                <th>Description</th>
+                                <?php foreach ($categories as $cat): ?>
+                                <th><?= htmlspecialchars($cat['name']) ?></th>
+                                <?php endforeach; ?>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($sevLevels as $sev): ?>
+                            <tr>
+                                <td class="has-text-weight-bold has-text-ocean"><?= $sev['level_value'] ?></td>
+                                <td><strong><?= htmlspecialchars($sev['label']) ?></strong></td>
+                                <td class="is-size-7"><?= htmlspecialchars($sev['description'] ?? '—') ?></td>
+                                <?php foreach ($categories as $cat): ?>
+                                <td class="is-size-7">
+                                    <?= htmlspecialchars($cat['descriptions'][$sev['level_value']] ?? '—') ?>
+                                </td>
+                                <?php endforeach; ?>
+                            </tr>
                             <?php endforeach; ?>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($sevLevels as $sev): ?>
-                        <tr>
-                            <td class="has-text-weight-bold has-text-ocean"><?= $sev['level_value'] ?></td>
-                            <td><strong><?= htmlspecialchars($sev['label']) ?></strong></td>
-                            <td class="is-size-7"><?= htmlspecialchars($sev['description'] ?? '—') ?></td>
-                            <?php foreach ($categories as $cat): ?>
-                            <td class="is-size-7">
-                                <?= htmlspecialchars($cat['descriptions'][$sev['level_value']] ?? '—') ?>
-                            </td>
-                            <?php endforeach; ?>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
         <?php endif; ?>
-    </div>
 
-</div>
+    </div>
+    <?php endif; ?>
+
+</div><!-- /.matrix-page-wrapper -->
 
 <?php if ($isSystem): ?>
 <!-- ── System read-only banner ─────────────────────────────────────────────── -->
@@ -513,11 +529,15 @@ function textColorFor(string $hex): string
 <?php endif; ?>
 
 <style>
-/* ── Sticky grid column ───────────────────────────────────────────────────── */
-.matrix-grid-column {
+/* ── Sticky header (grid + bands) ────────────────────────────────────────── */
+.matrix-sticky-header {
     position: sticky;
-    top: 1rem;
-    align-self: flex-start;
+    top: 3.25rem;           /* sit flush below the fixed navbar              */
+    z-index: 20;
+    background-color: #f7f9fa;
+    padding-bottom: 0.5rem;
+    box-shadow: 0 3px 10px rgba(0, 30, 50, 0.10);
+    margin-bottom: 0;
 }
 
 /* ── Read-only cell tooltip ───────────────────────────────────────────────── */
