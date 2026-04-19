@@ -172,11 +172,18 @@ function dimensionBadge(array $m): string
     <p class="has-text-grey mb-2">
         <span class="icon is-large"><i class="fas fa-wand-magic-sparkles fa-2x has-text-grey-light"></i></span>
     </p>
+    <?php if ($canClone): ?>
     <p class="has-text-grey is-size-6">You haven't created any custom matrices yet.</p>
     <p class="has-text-grey is-size-7 mt-1">
         Clone a standard matrix above to get started, or use
         <a href="/matrices/new">New Matrix</a> when the builder is available.
     </p>
+    <?php else: ?>
+    <p class="has-text-grey is-size-6">Custom matrices have not yet been created.</p>
+    <p class="has-text-grey is-size-7 mt-1">
+        Standard industry matrices are available above.
+    </p>
+    <?php endif; ?>
 </div>
 <?php endif; ?>
 

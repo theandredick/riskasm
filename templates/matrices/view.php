@@ -85,7 +85,7 @@ function textColorFor(string $hex): string
 <div class="columns is-desktop">
 
     <!-- ── Left: matrix grid ──────────────────────────────────────────────── -->
-    <div class="column">
+    <div class="column matrix-grid-column">
         <div class="box p-4">
             <h2 class="title is-6 mb-3">
                 <span class="icon-text">
@@ -156,7 +156,8 @@ function textColorFor(string $hex): string
                             <td class="matrix-risk-cell"
                                 style="background-color:<?= $bg ?>;color:<?= $fg ?>;"
                                 data-bs-toggle="tooltip"
-                                title="S<?= $sev['level_value'] ?>×L<?= $lik['level_value'] ?> = <?= $score ?> | <?= htmlspecialchars($cat) ?>">
+                                title="S<?= $sev['level_value'] ?>×L<?= $lik['level_value'] ?> = <?= $score ?> | <?= htmlspecialchars($cat) ?>"
+                                <?php if ($isSystem): ?>data-readonly="true"<?php endif; ?>>
                                 <div class="matrix-risk-label"><?= htmlspecialchars($cat) ?></div>
                                 <?php if ($score !== ''): ?>
                                 <div class="matrix-risk-score"><?= $score ?></div>
@@ -173,8 +174,8 @@ function textColorFor(string $hex): string
         </div>
     </div>
 
-    <!-- ── Right: risk bands legend ───────────────────────────────────────── -->
-    <div class="column is-one-third-desktop">
+    <!-- ── Right: risk bands legend + reference tables ─────────────────────── -->
+    <div class="column is-two-fifths-desktop">
         <div class="box p-4 mb-4">
             <h2 class="title is-6 mb-3">
                 <span class="icon-text">
@@ -227,95 +228,119 @@ function textColorFor(string $hex): string
             </div>
             <?php endif; ?>
         </div>
+
+        <!-- ── Likelihood reference table ─────────────────────────────────── -->
+        <?php if (!empty($likLevels)): ?>
+        <div class="box p-4 mb-4">
+            <h2 class="title is-6 mb-3">
+                <span class="icon-text">
+                    <span class="icon has-text-teal"><i class="fas fa-arrow-trend-up"></i></span>
+                    <span><?= htmlspecialchars($m['likelihood_axis_label']) ?> Scale</span>
+                </span>
+            </h2>
+            <div class="table-container">
+                <table class="table is-fullwidth is-hoverable is-narrow ref-table">
+                    <thead>
+                        <tr>
+                            <th style="width:3rem;">#</th>
+                            <th>Level</th>
+                            <?php if (array_filter($likLevels, fn($l) => $l['one_word'] && $l['one_word'] !== $l['label'])): ?>
+                            <th>One Word</th>
+                            <?php endif; ?>
+                            <?php if (array_filter($likLevels, fn($l) => $l['quantitative_range'])): ?>
+                            <th>Frequency / Range</th>
+                            <?php endif; ?>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        $hasOneWord = (bool) array_filter($likLevels, fn($l) => $l['one_word'] && $l['one_word'] !== $l['label']);
+                        $hasQuant   = (bool) array_filter($likLevels, fn($l) => $l['quantitative_range']);
+                        foreach ($likLevels as $lik):
+                        ?>
+                        <tr>
+                            <td class="has-text-weight-bold has-text-ocean"><?= $lik['level_value'] ?></td>
+                            <td><strong><?= htmlspecialchars($lik['label']) ?></strong></td>
+                            <?php if ($hasOneWord): ?>
+                            <td><?= htmlspecialchars($lik['one_word'] ?? '') ?></td>
+                            <?php endif; ?>
+                            <?php if ($hasQuant): ?>
+                            <td class="is-family-monospace is-size-7"><?= htmlspecialchars($lik['quantitative_range'] ?? '—') ?></td>
+                            <?php endif; ?>
+                            <td class="is-size-7"><?= htmlspecialchars($lik['description'] ?? '—') ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- ── Severity / Consequence reference table ─────────────────────── -->
+        <?php if (!empty($sevLevels)): ?>
+        <div class="box p-4 mb-4">
+            <h2 class="title is-6 mb-3">
+                <span class="icon-text">
+                    <span class="icon has-text-teal"><i class="fas fa-triangle-exclamation"></i></span>
+                    <span><?= htmlspecialchars($m['severity_axis_label']) ?> / Consequence Descriptions</span>
+                </span>
+            </h2>
+            <div class="table-container">
+                <table class="table is-fullwidth is-hoverable is-narrow ref-table">
+                    <thead>
+                        <tr>
+                            <th style="width:3rem;">#</th>
+                            <th>Level</th>
+                            <th>Description</th>
+                            <?php foreach ($categories as $cat): ?>
+                            <th><?= htmlspecialchars($cat['name']) ?></th>
+                            <?php endforeach; ?>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($sevLevels as $sev): ?>
+                        <tr>
+                            <td class="has-text-weight-bold has-text-ocean"><?= $sev['level_value'] ?></td>
+                            <td><strong><?= htmlspecialchars($sev['label']) ?></strong></td>
+                            <td class="is-size-7"><?= htmlspecialchars($sev['description'] ?? '—') ?></td>
+                            <?php foreach ($categories as $cat): ?>
+                            <td class="is-size-7">
+                                <?= htmlspecialchars($cat['descriptions'][$sev['level_value']] ?? '—') ?>
+                            </td>
+                            <?php endforeach; ?>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 
 </div>
 
-<!-- ── Likelihood reference table ─────────────────────────────────────────── -->
-<?php if (!empty($likLevels)): ?>
-<div class="box p-4 mb-4">
-    <h2 class="title is-6 mb-3">
-        <span class="icon-text">
-            <span class="icon has-text-teal"><i class="fas fa-arrow-trend-up"></i></span>
-            <span><?= htmlspecialchars($m['likelihood_axis_label']) ?> Scale</span>
+<?php if ($isSystem): ?>
+<!-- ── System read-only banner ─────────────────────────────────────────────── -->
+<div class="notification is-warning is-light mt-4">
+    <span class="icon-text">
+        <span class="icon has-text-warning-dark"><i class="fas fa-lock"></i></span>
+        <span>
+            <strong>This is a read-only system matrix.</strong>
+            <?php if ($canClone): ?>
+            <a href="#"
+               class="js-clone-btn"
+               data-matrix-id="<?= $m['id'] ?>"
+               data-matrix-name="<?= htmlspecialchars($m['name'], ENT_QUOTES) ?>"
+               onclick="event.preventDefault();">
+                Clone it
+            </a>
+            to create your own fully editable version.
+            <?php else: ?>
+            Contact an administrator to clone this matrix to your account.
+            <?php endif; ?>
         </span>
-    </h2>
-    <div class="table-container">
-        <table class="table is-fullwidth is-hoverable is-narrow ref-table">
-            <thead>
-                <tr>
-                    <th style="width:3rem;">#</th>
-                    <th>Level</th>
-                    <?php if (array_filter($likLevels, fn($l) => $l['one_word'] && $l['one_word'] !== $l['label'])): ?>
-                    <th>One Word</th>
-                    <?php endif; ?>
-                    <?php if (array_filter($likLevels, fn($l) => $l['quantitative_range'])): ?>
-                    <th>Frequency / Range</th>
-                    <?php endif; ?>
-                    <th>Description</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php
-                $hasOneWord = (bool) array_filter($likLevels, fn($l) => $l['one_word'] && $l['one_word'] !== $l['label']);
-                $hasQuant   = (bool) array_filter($likLevels, fn($l) => $l['quantitative_range']);
-                foreach ($likLevels as $lik):
-                ?>
-                <tr>
-                    <td class="has-text-weight-bold has-text-ocean"><?= $lik['level_value'] ?></td>
-                    <td><strong><?= htmlspecialchars($lik['label']) ?></strong></td>
-                    <?php if ($hasOneWord): ?>
-                    <td><?= htmlspecialchars($lik['one_word'] ?? '') ?></td>
-                    <?php endif; ?>
-                    <?php if ($hasQuant): ?>
-                    <td class="is-family-monospace is-size-7"><?= htmlspecialchars($lik['quantitative_range'] ?? '—') ?></td>
-                    <?php endif; ?>
-                    <td class="is-size-7"><?= htmlspecialchars($lik['description'] ?? '—') ?></td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-</div>
-<?php endif; ?>
-
-<!-- ── Severity / Consequence reference table ─────────────────────────────── -->
-<?php if (!empty($sevLevels)): ?>
-<div class="box p-4 mb-4">
-    <h2 class="title is-6 mb-3">
-        <span class="icon-text">
-            <span class="icon has-text-teal"><i class="fas fa-triangle-exclamation"></i></span>
-            <span><?= htmlspecialchars($m['severity_axis_label']) ?> / Consequence Descriptions</span>
-        </span>
-    </h2>
-    <div class="table-container">
-        <table class="table is-fullwidth is-hoverable is-narrow ref-table">
-            <thead>
-                <tr>
-                    <th style="width:3rem;">#</th>
-                    <th>Level</th>
-                    <th>Description</th>
-                    <?php foreach ($categories as $cat): ?>
-                    <th><?= htmlspecialchars($cat['name']) ?></th>
-                    <?php endforeach; ?>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($sevLevels as $sev): ?>
-                <tr>
-                    <td class="has-text-weight-bold has-text-ocean"><?= $sev['level_value'] ?></td>
-                    <td><strong><?= htmlspecialchars($sev['label']) ?></strong></td>
-                    <td class="is-size-7"><?= htmlspecialchars($sev['description'] ?? '—') ?></td>
-                    <?php foreach ($categories as $cat): ?>
-                    <td class="is-size-7">
-                        <?= htmlspecialchars($cat['descriptions'][$sev['level_value']] ?? '—') ?>
-                    </td>
-                    <?php endforeach; ?>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
+    </span>
 </div>
 <?php endif; ?>
 
@@ -332,22 +357,53 @@ function textColorFor(string $hex): string
             <?php if ($m['name'] === 'U.S. Army ATP 5-19 4×5'): ?>
             This matrix uses ordinal (non-numeric) risk rankings assigned per ATP 5-19 doctrine.
             <?php endif; ?>
-            System matrices are read-only.
-            <?php if ($canClone): ?>
-            <a href="#"
-               class="js-clone-btn"
-               data-matrix-id="<?= $m['id'] ?>"
-               data-matrix-name="<?= htmlspecialchars($m['name'], ENT_QUOTES) ?>"
-               onclick="event.preventDefault();">
-                Clone this matrix
-            </a>
-            to create your own editable version.
-            <?php else: ?>
-            Contact an administrator to clone this matrix to your account.
-            <?php endif; ?>
         </span>
     </span>
 </div>
+
+<?php if ($isSystem): ?>
+<!-- ── Read-only cell tooltip (injected into <body> via JS) ────────────────── -->
+<div id="matrix-readonly-tip" class="matrix-readonly-tip" role="tooltip" aria-live="polite"></div>
+<script>
+(function () {
+    const tip   = document.getElementById('matrix-readonly-tip');
+    const cells = document.querySelectorAll('.matrix-risk-cell[data-readonly]');
+    if (!tip || !cells.length) return;
+
+    tip.textContent = 'This is a system standard. Clone it to customize.';
+
+    let hideTimer;
+
+    function showTip(cell) {
+        clearTimeout(hideTimer);
+        const rect  = cell.getBoundingClientRect();
+        const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+        const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+        tip.style.left = (rect.left + rect.width / 2 + scrollX) + 'px';
+        tip.style.top  = (rect.top  + scrollY - 10) + 'px';
+        tip.classList.add('is-visible');
+        hideTimer = setTimeout(hideTip, 3000);
+    }
+
+    function hideTip() {
+        tip.classList.remove('is-visible');
+    }
+
+    cells.forEach(function (cell) {
+        cell.style.cursor = 'pointer';
+        cell.addEventListener('click', function (e) {
+            e.stopPropagation();
+            showTip(cell);
+        });
+    });
+
+    document.addEventListener('click', hideTip);
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') hideTip();
+    });
+}());
+</script>
+<?php endif; ?>
 
 <?php if ($canClone): ?>
 <!-- ── Clone naming modal ──────────────────────────────────────────────────── -->
@@ -457,6 +513,44 @@ function textColorFor(string $hex): string
 <?php endif; ?>
 
 <style>
+/* ── Sticky grid column ───────────────────────────────────────────────────── */
+.matrix-grid-column {
+    position: sticky;
+    top: 1rem;
+    align-self: flex-start;
+}
+
+/* ── Read-only cell tooltip ───────────────────────────────────────────────── */
+.matrix-readonly-tip {
+    position: absolute;
+    background: rgba(23, 37, 51, 0.93);
+    color: #fff;
+    font-size: 0.73rem;
+    font-family: 'Montserrat', system-ui, sans-serif;
+    padding: 0.38rem 0.75rem;
+    border-radius: 5px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateX(-50%) translateY(-100%);
+    transition: opacity 0.18s ease;
+    z-index: 500;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28);
+}
+.matrix-readonly-tip.is-visible {
+    opacity: 1;
+}
+.matrix-readonly-tip::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -5px;
+    transform: translateX(-50%);
+    border-width: 5px 5px 0;
+    border-style: solid;
+    border-color: rgba(23, 37, 51, 0.93) transparent transparent;
+}
+
 /* ── Matrix grid ──────────────────────────────────────────────────────────── */
 .matrix-grid-wrapper {
     overflow-x: auto;
