@@ -530,14 +530,31 @@ function textColorFor(string $hex): string
 
 <style>
 /* ── Sticky header (grid + bands) ────────────────────────────────────────── */
+/*
+ * Sticky is only active at desktop widths (≥ 1024 px).
+ * Below that the columns stack vertically, making the header too tall and
+ * hiding the reference tables behind it — so we simply fall back to normal flow.
+ *
+ * Horizontal padding of 0.75rem cancels Bulma's .columns margin: -0.75rem so
+ * the background covers the full width and content cannot bleed through the
+ * column gutters at the edges of the sticky bar.
+ */
 .matrix-sticky-header {
-    position: sticky;
-    top: 3.25rem;           /* sit flush below the fixed navbar              */
-    z-index: 20;
-    background-color: #f7f9fa;
-    padding-bottom: 0.5rem;
-    box-shadow: 0 3px 10px rgba(0, 30, 50, 0.10);
-    margin-bottom: 0;
+    position: static;           /* default: no sticky on mobile/tablet       */
+    background-color: transparent;
+    padding: 0;
+    box-shadow: none;
+}
+
+@media screen and (min-width: 1024px) {
+    .matrix-sticky-header {
+        position: sticky;
+        top: 3.25rem;           /* flush below the fixed navbar              */
+        z-index: 20;
+        background-color: #f7f9fa;
+        padding: 0.25rem 0.75rem 0.75rem; /* 0.75rem sides cancel column gutters */
+        box-shadow: 0 3px 10px rgba(0, 30, 50, 0.10);
+    }
 }
 
 /* ── Read-only cell tooltip ───────────────────────────────────────────────── */
