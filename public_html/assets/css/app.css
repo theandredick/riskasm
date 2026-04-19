@@ -460,3 +460,119 @@ body.has-navbar-fixed-top {
 .accent-lime {
     border-left: 4px solid var(--lime);
 }
+
+/* ── Assessment editor table ──────────────────────────────────────────────── */
+.assessment-table {
+    font-size: 0.82rem;
+    border-collapse: collapse;
+    min-width: 900px;
+}
+
+.assessment-table thead th {
+    background-color: var(--ocean);
+    color: rgba(255,255,255,0.9);
+    font-family: 'Montserrat', system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    padding: 0.5rem 0.6rem;
+    border: none;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.assessment-table #assessment-subhead th {
+    background-color: #002d44;
+    color: rgba(255,255,255,0.65);
+    font-size: 0.68rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.assessment-table #assessment-subhead .subhead-cell {
+    text-align: center;
+}
+
+.assessment-table .risk-group-header {
+    text-align: center;
+    border-left: 2px solid rgba(255,255,255,0.2);
+    border-right: 2px solid rgba(255,255,255,0.2);
+}
+
+.assessment-table .drag-col,
+.assessment-table .drag-handle {
+    width: 28px;
+    padding: 0 0.2rem;
+    text-align: center;
+}
+
+.assessment-table .num-col {
+    width: 30px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.assessment-table .actions-col {
+    width: 44px;
+}
+
+.assessment-table tbody td {
+    padding: 0.35rem 0.4rem;
+    border-bottom: 1px solid #e8f0f4;
+    vertical-align: top;
+}
+
+.assessment-table tbody tr:hover td {
+    background-color: rgba(47, 158, 174, 0.04);
+}
+
+.assessment-table .input.is-small,
+.assessment-table .select.is-small,
+.assessment-table .textarea.is-small {
+    font-size: 0.82rem;
+    min-width: 80px;
+}
+
+.assessment-table .textarea.is-small {
+    min-width: 140px;
+    resize: vertical;
+}
+
+.assessment-table .is-level-select {
+    min-width: 90px;
+}
+
+.assessment-table .risk-badge-td {
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.drag-handle {
+    cursor: grab;
+    vertical-align: middle;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.sortable-ghost {
+    opacity: 0.4;
+    background-color: var(--sand) !important;
+}
+
+/* ── is-teal button ───────────────────────────────────────────────────────── */
+.button.is-teal {
+    background-color: var(--teal);
+    border-color: transparent;
+    color: #fff;
+    font-weight: 600;
+}
+.button.is-teal:hover {
+    background-color: #268898;
+    color: #fff;
+}

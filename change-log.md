@@ -1,5 +1,28 @@
 # Change Log — Smart Risk Assessment
 
+## [Phase 1 — 5.3 Assessment CRUD] — 2026-04-19
+
+### Added
+- **Assessment Model** (`src/Models/Assessment.php`) — full CRUD: `create`, `findForUser`, `findAllForUser`, `update`, `updateStatus`, `delete`, `copy`; status workflow constants (`STATUS_TRANSITIONS`); four template-type presets for `column_config` JSONB; `sharePermission` helper
+- **AssessmentRow Model** (`src/Models/AssessmentRow.php`) — full CRUD with denormalized controls text via `LATERAL JOIN`; `batchSync` for localStorage→server flush; `saveControls` stores one existing-controls and one proposed-controls record per row in `row_controls` (phase 1 simplified); `reorder` by sort_order
+- **AssessmentController** (`src/Controllers/AssessmentController.php`) — `index`, `create`, `store`, `edit`, `update`, `destroy`, `copy`, `updateStatus`; access control (owner vs. share); status-workflow guard
+- **AssessmentRowApiController** (`src/Controllers/AssessmentRowApiController.php`) — `index`, `store`, `update`, `destroy`, `reorder`, `sync`; JSON API; CSRF validated from body `_csrf` field
+- **New Assessment form** (`templates/assessments/new.php`) — two-column layout: left = matrix select (grouped system/custom) + 4 template-type radio cards with descriptions; right = header metadata fields (title*, ref, description, location, assessor, review date)
+- **Assessment Editor** (`templates/assessments/editor.php`) — inline table editor; all columns shown/hidden via `column_config`; grouped headers (Natural Risk / Current Risk / Residual Risk); page header with status badge, Save, Duplicate, Export dropdown, Status workflow dropdown, Delete, Edit Details modal; localStorage-first draft banner with Keep/Discard options
+- **Assessment Editor JS** (`public_html/assets/js/assessment-editor.js`) — vanilla JS `AssessmentEditor`; state stored in `localStorage` under `assessment_{id}_state`; server sync via `POST /api/assessments/{id}/sync`; `sendBeacon` on `beforeunload`; visibility-change sync; SortableJS drag-to-reorder; risk level auto-fill from preloaded matrix cells; contrast-colour detection for risk badges
+- **Assessment List** (`templates/assessments/index.php`) — table with title, reference, template, matrix, row count, status badge, updated date; client-side search filter (> 5 rows); Duplicate and Delete inline actions
+- **CSS** — assessment table styles: sticky Ocean Blue header, S/L/Risk sub-header row, drag handle, sortable ghost, min-width for horizontal scroll
+
+### Files involved
+- `src/Models/Assessment.php`, `src/Models/AssessmentRow.php` (new)
+- `src/Controllers/AssessmentController.php`, `src/Controllers/AssessmentRowApiController.php`
+- `templates/assessments/new.php`, `templates/assessments/editor.php`, `templates/assessments/index.php`
+- `public_html/assets/js/assessment-editor.js` (new)
+- `public_html/assets/css/app.css`, `templates/dashboard/index.php`
+
+---
+
+
 All notable changes to this project are documented here.
 Format: `## [version or milestone] — YYYY-MM-DD`
 

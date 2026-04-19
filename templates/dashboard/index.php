@@ -52,6 +52,6 @@ $userName = Session::get('user_name', 'there');
 <div class="notification is-info is-light mt-4">
     <span class="icon-text">
         <span class="icon"><i class="fas fa-circle-info"></i></span>
-        <span><strong>Phase 1 in progress.</strong> Assessments, risk matrices, and library features are coming next.</span>
+        <span><strong>Getting started?</strong> Create a new assessment, or browse the risk matrix library to explore built-in industry matrices.</span>
     </span>
 </div>
