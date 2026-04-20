@@ -22,12 +22,12 @@ $statusColor  = $statusColors[$assessment['status'] ?? 'draft'] ?? 'is-light';
 $templateLabel= $templateLabels[$assessment['template_type'] ?? 'simple'] ?? '';
 
 // JSON-encode data for JavaScript
-$rowsJson      = json_encode(array_values($rows), JSON_HEX_SCRIPT);
-$cellsJson     = json_encode($matrix['cells']            ?? [], JSON_HEX_SCRIPT);
-$sevJson       = json_encode($matrix['severity_levels']  ?? [], JSON_HEX_SCRIPT);
-$lhJson        = json_encode($matrix['likelihood_levels']?? [], JSON_HEX_SCRIPT);
-$ccJson        = json_encode($cc, JSON_HEX_SCRIPT);
-$ctJson        = json_encode($controlTypes, JSON_HEX_SCRIPT);
+$rowsJson      = json_encode(array_values($rows), JSON_HEX_TAG);
+$cellsJson     = json_encode($matrix['cells']            ?? [], JSON_HEX_TAG);
+$sevJson       = json_encode($matrix['severity_levels']  ?? [], JSON_HEX_TAG);
+$lhJson        = json_encode($matrix['likelihood_levels']?? [], JSON_HEX_TAG);
+$ccJson        = json_encode($cc, JSON_HEX_TAG);
+$ctJson        = json_encode($controlTypes, JSON_HEX_TAG);
 $csrfEsc       = htmlspecialchars($csrf);
 $showAccept    = !empty($cc['show_accept_yn']);
 ?>
