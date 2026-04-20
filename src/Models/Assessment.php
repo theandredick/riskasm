@@ -115,7 +115,7 @@ class Assessment
                AND (a.owner_id = ?
                     OR EXISTS (
                         SELECT 1 FROM assessment_shares s
-                        WHERE s.assessment_id = a.id AND s.shared_with_id = ?
+                        WHERE s.assessment_id = a.id AND s.shared_with_user_id = ?
                     ))',
             [$id, $userId, $userId]
         );
@@ -147,7 +147,7 @@ class Assessment
              WHERE a.owner_id = ?
                 OR EXISTS (
                     SELECT 1 FROM assessment_shares s
-                    WHERE s.assessment_id = a.id AND s.shared_with_id = ?
+                    WHERE s.assessment_id = a.id AND s.shared_with_user_id = ?
                 )
              ORDER BY a.updated_at DESC',
             [$userId, $userId, $userId]
@@ -168,7 +168,7 @@ class Assessment
     {
         $share = Database::fetchOne(
             'SELECT permission FROM assessment_shares
-             WHERE assessment_id = ? AND shared_with_id = ?',
+             WHERE assessment_id = ? AND shared_with_user_id = ?',
             [$assessmentId, $userId]
         );
         return $share['permission'] ?? null;
