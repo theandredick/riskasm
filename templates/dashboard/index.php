@@ -2,6 +2,7 @@
 use App\Core\Session;
 Session::start();
 $userName = Session::get('user_name', 'there');
+$isViewer = (Session::userRole() ?? 'viewer') === 'viewer';
 ?>
 <div class="level mb-5">
     <div class="level-left">
@@ -12,6 +13,7 @@ $userName = Session::get('user_name', 'there');
             </div>
         </div>
     </div>
+    <?php if (!$isViewer): ?>
     <div class="level-right">
         <div class="level-item">
             <a class="button is-link" href="/assessments/new">
@@ -20,6 +22,7 @@ $userName = Session::get('user_name', 'there');
             </a>
         </div>
     </div>
+    <?php endif; ?>
 </div>
 
 <div class="columns">
@@ -27,7 +30,7 @@ $userName = Session::get('user_name', 'there');
         <div class="box has-text-centered py-6">
             <p class="is-size-3 mb-3 has-text-link"><i class="fas fa-clipboard-list"></i></p>
             <p class="title is-5 mb-1">Assessments</p>
-            <p class="has-text-grey is-size-7 mb-4">Create, manage and export risk assessments</p>
+            <p class="has-text-grey is-size-7 mb-4"><?= $isViewer ? 'View and comment on risk assessments shared with you' : 'Create, manage and export risk assessments' ?></p>
             <a class="button is-link is-outlined" href="/assessments">View All</a>
         </div>
     </div>

@@ -9,6 +9,8 @@ $statusLabels  = $statusLabels  ?? [];
 $statusColors  = $statusColors  ?? [];
 $templateLabels= $templateLabels?? [];
 $userId        = (int) Session::get('user_id');
+$userRole      = Session::userRole() ?? 'viewer';
+$isViewer      = $userRole === 'viewer';
 ?>
 
 <!-- ── Page header ──────────────────────────────────────────────────────────── -->
@@ -23,11 +25,12 @@ $userId        = (int) Session::get('user_id');
                     </span>
                 </h1>
                 <p class="subtitle is-6 has-text-grey">
-                    Your risk assessments — owned and shared with you.
+                    <?= $isViewer ? 'Assessments shared with you.' : 'Your risk assessments — owned and shared with you.' ?>
                 </p>
             </div>
         </div>
     </div>
+    <?php if (!$isViewer): ?>
     <div class="level-right">
         <div class="level-item">
             <a class="button is-link" href="/assessments/new">
@@ -36,6 +39,7 @@ $userId        = (int) Session::get('user_id');
             </a>
         </div>
     </div>
+    <?php endif; ?>
 </div>
 
 <?php if (empty($assessments)): ?>
@@ -44,6 +48,12 @@ $userId        = (int) Session::get('user_id');
     <p class="has-text-grey-light mb-3">
         <span class="icon is-large"><i class="fas fa-clipboard-list fa-3x"></i></span>
     </p>
+    <?php if ($isViewer): ?>
+    <p class="title is-5 has-text-grey">No assessments shared with you yet</p>
+    <p class="has-text-grey is-size-6 mb-4">
+        Assessments shared with you will appear here.
+    </p>
+    <?php else: ?>
     <p class="title is-5 has-text-grey">No assessments yet</p>
     <p class="has-text-grey is-size-6 mb-4">
         Create your first risk assessment to get started.
@@ -52,6 +62,7 @@ $userId        = (int) Session::get('user_id');
         <span class="icon"><i class="fas fa-plus"></i></span>
         <span>Create Assessment</span>
     </a>
+    <?php endif; ?>
 </div>
 
 <?php else: ?>
@@ -127,10 +138,10 @@ $userId        = (int) Session::get('user_id');
                     <div class="is-flex" style="gap:0.3rem;">
                         <a class="button is-link is-outlined is-small"
                            href="/assessments/<?= $a['id'] ?>"
-                           title="Open editor">
-                            <span class="icon"><i class="fas fa-pen-to-square"></i></span>
+                           title="<?= $isViewer ? 'View' : 'Open editor' ?>">
+                            <span class="icon"><i class="fas <?= $isViewer ? 'fa-eye' : 'fa-pen-to-square' ?>"></i></span>
                         </a>
-                        <?php if ($isOwned): ?>
+                        <?php if ($isOwned && !$isViewer): ?>
                         <form method="POST" action="/assessments/<?= $a['id'] ?>/copy" style="display:inline;">
                             <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf) ?>">
                             <button type="submit" class="button is-light is-small"
