@@ -541,6 +541,42 @@ body.has-navbar-fixed-top {
     resize: vertical;
 }
 
+/* ── Multi-control list within a hazard row ───────────────────────────────── */
+.controls-td {
+    min-width: 200px;
+    vertical-align: top;
+}
+.control-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 0.3rem;
+}
+.control-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.3rem;
+}
+.control-item .textarea.is-small {
+    flex: 1;
+    min-width: 100px;
+    resize: vertical;
+}
+.control-item .control-type-select {
+    flex-shrink: 0;
+    width: auto;
+}
+.control-item .control-del-btn {
+    flex-shrink: 0;
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
+}
+.add-control-btn {
+    font-size: 0.75rem;
+    height: 1.6rem;
+    padding: 0 0.5rem;
+}
+
 .assessment-table .is-level-select {
     min-width: 90px;
 }

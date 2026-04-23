@@ -245,9 +245,6 @@ $showAccept    = !empty($cc['show_accept_yn']);
                 <?php endif; ?>
 
                 <th>Existing Controls</th>
-                <?php if (!empty($cc['show_control_type'])): ?>
-                <th>Control Type</th>
-                <?php endif; ?>
 
                 <th class="risk-group-header" colspan="<?= 2 + ($showAccept ? 1 : 0) + 1 ?>">
                     Current Risk
@@ -283,7 +280,6 @@ $showAccept    = !empty($cc['show_accept_yn']);
                 <?php endif; ?>
 
                 <th></th>
-                <?php if (!empty($cc['show_control_type'])): ?><th></th><?php endif; ?>
 
                 <th class="subhead-cell">S</th>
                 <th class="subhead-cell">L</th>

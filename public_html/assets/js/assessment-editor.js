@@ -107,33 +107,51 @@
 
     function emptyRow() {
         return {
-            id                      : nextTempId--,
-            sort_order              : state.rows.length,
-            activity_condition      : null,
-            hazard                  : null,
-            exposure_description    : null,
-            exposed_assets          : null,
-            effect                  : null,
-            existing_controls       : null,
-            existing_controls_type  : null,
-            natural_severity_value  : null,
-            natural_likelihood_value: null,
-            natural_risk_category   : null,
-            natural_colour_hex      : null,
-            natural_risk_accept     : null,
-            severity_value          : null,
-            likelihood_value        : null,
-            risk_category           : null,
-            colour_hex              : null,
-            current_risk_accept     : null,
-            proposed_controls       : null,
-            residual_severity_value : null,
+            id                       : nextTempId--,
+            sort_order               : state.rows.length,
+            activity_condition       : null,
+            hazard                   : null,
+            exposure_description     : null,
+            exposed_assets           : null,
+            effect                   : null,
+            existing_controls        : [],   // array of {description, control_type}
+            natural_severity_value   : null,
+            natural_likelihood_value : null,
+            natural_risk_category    : null,
+            natural_colour_hex       : null,
+            natural_risk_accept      : null,
+            severity_value           : null,
+            likelihood_value         : null,
+            risk_category            : null,
+            colour_hex               : null,
+            current_risk_accept      : null,
+            proposed_controls        : [],   // array of {description, control_type}
+            residual_severity_value  : null,
             residual_likelihood_value: null,
-            residual_risk_category  : null,
-            residual_colour_hex     : null,
-            residual_risk_accept    : null,
-            comments                : null
+            residual_risk_category   : null,
+            residual_colour_hex      : null,
+            residual_risk_accept     : null,
+            comments                 : null
         };
+    }
+
+    /**
+     * Ensure a row uses the new array format for controls.
+     * Migrates old localStorage data where controls were plain strings.
+     */
+    function normalizeRow(row) {
+        if (!Array.isArray(row.existing_controls)) {
+            var desc = (typeof row.existing_controls === 'string') ? row.existing_controls.trim() : '';
+            var type = row.existing_controls_type || null;
+            row.existing_controls = desc ? [{ description: desc, control_type: type }] : [];
+        }
+        delete row.existing_controls_type;
+
+        if (!Array.isArray(row.proposed_controls)) {
+            var pdesc = (typeof row.proposed_controls === 'string') ? row.proposed_controls.trim() : '';
+            row.proposed_controls = pdesc ? [{ description: pdesc, control_type: null }] : [];
+        }
+        return row;
     }
 
     function updateRiskFields(row, prefix) {
@@ -256,6 +274,110 @@
         return td;
     }
 
+    /**
+     * Build a table cell containing a list of control measures for one phase.
+     * Each item has a description textarea, an optional type select, and a remove button.
+     * An "Add" button appends a new blank item to the list.
+     */
+    function makeControlsCell(row, phase, showType) {
+        var field = phase === 'existing' ? 'existing_controls' : 'proposed_controls';
+        var td = document.createElement('td');
+        td.className = 'controls-td';
+
+        var list = document.createElement('div');
+        list.className = 'control-list';
+        td.appendChild(list);
+
+        function renderItems() {
+            list.innerHTML = '';
+            var controls = row[field];
+            if (!Array.isArray(controls)) controls = [];
+
+            controls.forEach(function (ctrl, idx) {
+                var item = document.createElement('div');
+                item.className = 'control-item';
+
+                var ta = document.createElement('textarea');
+                ta.className   = 'textarea is-small';
+                ta.rows        = 2;
+                ta.value       = ctrl.description || '';
+                ta.placeholder = 'Describe control measure…';
+                if (!canEdit) {
+                    ta.readOnly = true;
+                } else {
+                    ta.addEventListener('change', function () {
+                        row[field][idx].description = ta.value.trim() || '';
+                        saveToStorage();
+                    });
+                }
+                item.appendChild(ta);
+
+                if (showType) {
+                    var sel = document.createElement('select');
+                    sel.className = 'select is-small control-type-select';
+
+                    var optBlank = document.createElement('option');
+                    optBlank.value       = '';
+                    optBlank.textContent = '— Type —';
+                    sel.appendChild(optBlank);
+
+                    Object.keys(cfg.controlTypes).forEach(function (key) {
+                        var opt = document.createElement('option');
+                        opt.value       = key;
+                        opt.textContent = cfg.controlTypes[key];
+                        if (ctrl.control_type === key) opt.selected = true;
+                        sel.appendChild(opt);
+                    });
+
+                    if (!canEdit) {
+                        sel.disabled = true;
+                    } else {
+                        sel.addEventListener('change', function () {
+                            row[field][idx].control_type = sel.value || null;
+                            saveToStorage();
+                        });
+                    }
+                    item.appendChild(sel);
+                }
+
+                if (canEdit) {
+                    var delBtn = document.createElement('button');
+                    delBtn.type      = 'button';
+                    delBtn.className = 'button is-danger-muted is-small control-del-btn';
+                    delBtn.title     = 'Remove this control';
+                    delBtn.innerHTML = '<span class="icon"><i class="fas fa-times"></i></span>';
+                    delBtn.addEventListener('click', function () {
+                        row[field].splice(idx, 1);
+                        saveToStorage();
+                        renderItems();
+                    });
+                    item.appendChild(delBtn);
+                }
+
+                list.appendChild(item);
+            });
+        }
+
+        renderItems();
+
+        if (canEdit) {
+            var addBtn = document.createElement('button');
+            addBtn.type      = 'button';
+            addBtn.className = 'button is-small is-light add-control-btn';
+            addBtn.title     = 'Add a control measure';
+            addBtn.innerHTML = '<span class="icon"><i class="fas fa-plus"></i></span><span>Add</span>';
+            addBtn.addEventListener('click', function () {
+                if (!Array.isArray(row[field])) row[field] = [];
+                row[field].push({ description: '', control_type: null });
+                saveToStorage();
+                renderItems();
+            });
+            td.appendChild(addBtn);
+        }
+
+        return td;
+    }
+
     function makeRiskBadgeTd(row, catField, hexField) {
         var td   = document.createElement('td');
         td.className = 'risk-badge-td';
@@ -335,12 +457,12 @@
         tdNum.textContent = rowNum;
         tr.appendChild(tdNum);
 
-        // Hazard description columns
-        if (cc.show_activity_condition) tr.appendChild(makeInput(row, 'activity_condition', 'Activity / condition'));
-        tr.appendChild(makeInput(row, 'hazard', 'Describe the hazard…'));
-        if (cc.show_exposure_description) tr.appendChild(makeInput(row, 'exposure_description', 'Exposure description'));
-        if (cc.show_exposed_assets)       tr.appendChild(makeInput(row, 'exposed_assets', 'Persons / assets at risk'));
-        tr.appendChild(makeInput(row, 'effect', 'Potential effect'));
+        // Hazard description columns (textareas so text can wrap and be resized)
+        if (cc.show_activity_condition) tr.appendChild(makeTextarea(row, 'activity_condition', 'Activity / condition'));
+        tr.appendChild(makeTextarea(row, 'hazard', 'Describe the hazard…'));
+        if (cc.show_exposure_description) tr.appendChild(makeTextarea(row, 'exposure_description', 'Exposure description'));
+        if (cc.show_exposed_assets)       tr.appendChild(makeTextarea(row, 'exposed_assets', 'Persons / assets at risk'));
+        tr.appendChild(makeTextarea(row, 'effect', 'Potential effect'));
 
         // Natural risk columns
         if (cc.show_natural_risk) {
@@ -354,9 +476,8 @@
             if (cc.show_accept_yn) tr.appendChild(makeCheckbox(row, 'natural_risk_accept'));
         }
 
-        // Existing controls
-        tr.appendChild(makeTextarea(row, 'existing_controls', 'List existing control measures…'));
-        if (cc.show_control_type) tr.appendChild(makeControlTypeSelect(row, 'existing_controls_type'));
+        // Existing controls — multi-item list; type dropdown embedded when show_control_type is on
+        tr.appendChild(makeControlsCell(row, 'existing', !!cc.show_control_type));
 
         // Current risk
         var updateCurrent = function () {
@@ -370,7 +491,7 @@
 
         // Proposed controls + residual risk
         if (cc.show_proposed_controls) {
-            tr.appendChild(makeTextarea(row, 'proposed_controls', 'List proposed control measures…'));
+            tr.appendChild(makeControlsCell(row, 'proposed', false));
         }
         if (cc.show_residual_risk) {
             var updateResidual = function () {
@@ -549,6 +670,7 @@
 
         if (stored && stored.rows) {
             // Show the draft banner and let the user decide
+            stored.rows = stored.rows.map(normalizeRow);
             state = stored;
             var banner = document.getElementById('local-draft-banner');
             if (banner) {
@@ -557,7 +679,7 @@
             markDirty(true);
         } else {
             // Fresh load from server
-            state = { rows: deepClone(cfg.serverRows), deletedIds: [] };
+            state = { rows: deepClone(cfg.serverRows).map(normalizeRow), deletedIds: [] };
         }
 
         render();

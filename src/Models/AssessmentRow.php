@@ -20,59 +20,69 @@ class AssessmentRow
     // ── Queries ───────────────────────────────────────────────────────────────
 
     /**
-     * Return all rows for an assessment with denormalized controls text,
+     * Return all rows for an assessment with controls as ordered arrays,
      * ordered by sort_order then id.
      */
     public static function allForAssessment(int $assessmentId): array
     {
-        return Database::fetchAll(
+        $rows = Database::fetchAll(
             'SELECT ar.*,
-                    ec.description  AS existing_controls,
-                    ec.control_type AS existing_controls_type,
-                    pc.description  AS proposed_controls
+                    COALESCE(
+                        (SELECT json_agg(json_build_object(\'description\', rc.description, \'control_type\', rc.control_type)
+                                         ORDER BY rc.sort_order)
+                         FROM row_controls rc
+                         WHERE rc.assessment_row_id = ar.id AND rc.phase = \'existing\'),
+                        \'[]\'::json
+                    ) AS existing_controls,
+                    COALESCE(
+                        (SELECT json_agg(json_build_object(\'description\', rc.description, \'control_type\', rc.control_type)
+                                         ORDER BY rc.sort_order)
+                         FROM row_controls rc
+                         WHERE rc.assessment_row_id = ar.id AND rc.phase = \'proposed\'),
+                        \'[]\'::json
+                    ) AS proposed_controls
              FROM assessment_rows ar
-             LEFT JOIN LATERAL (
-                 SELECT description, control_type
-                 FROM row_controls
-                 WHERE assessment_row_id = ar.id AND phase = \'existing\'
-                 ORDER BY sort_order LIMIT 1
-             ) ec ON TRUE
-             LEFT JOIN LATERAL (
-                 SELECT description
-                 FROM row_controls
-                 WHERE assessment_row_id = ar.id AND phase = \'proposed\'
-                 ORDER BY sort_order LIMIT 1
-             ) pc ON TRUE
              WHERE ar.assessment_id = ?
              ORDER BY ar.sort_order, ar.id',
             [$assessmentId]
         );
+
+        return array_map(self::decodeControlArrays(...), $rows);
     }
 
-    /** Find a single row by ID with denormalized controls. */
+    /** Find a single row by ID with controls as ordered arrays. */
     public static function find(int $id): ?array
     {
-        return Database::fetchOne(
+        $row = Database::fetchOne(
             'SELECT ar.*,
-                    ec.description  AS existing_controls,
-                    ec.control_type AS existing_controls_type,
-                    pc.description  AS proposed_controls
+                    COALESCE(
+                        (SELECT json_agg(json_build_object(\'description\', rc.description, \'control_type\', rc.control_type)
+                                         ORDER BY rc.sort_order)
+                         FROM row_controls rc
+                         WHERE rc.assessment_row_id = ar.id AND rc.phase = \'existing\'),
+                        \'[]\'::json
+                    ) AS existing_controls,
+                    COALESCE(
+                        (SELECT json_agg(json_build_object(\'description\', rc.description, \'control_type\', rc.control_type)
+                                         ORDER BY rc.sort_order)
+                         FROM row_controls rc
+                         WHERE rc.assessment_row_id = ar.id AND rc.phase = \'proposed\'),
+                        \'[]\'::json
+                    ) AS proposed_controls
              FROM assessment_rows ar
-             LEFT JOIN LATERAL (
-                 SELECT description, control_type
-                 FROM row_controls
-                 WHERE assessment_row_id = ar.id AND phase = \'existing\'
-                 ORDER BY sort_order LIMIT 1
-             ) ec ON TRUE
-             LEFT JOIN LATERAL (
-                 SELECT description
-                 FROM row_controls
-                 WHERE assessment_row_id = ar.id AND phase = \'proposed\'
-                 ORDER BY sort_order LIMIT 1
-             ) pc ON TRUE
              WHERE ar.id = ?',
             [$id]
         );
+
+        return $row !== null ? self::decodeControlArrays($row) : null;
+    }
+
+    /** Decode JSON control array strings returned by the DB driver into PHP arrays. */
+    private static function decodeControlArrays(array $row): array
+    {
+        $row['existing_controls'] = json_decode($row['existing_controls'] ?? '[]', true) ?? [];
+        $row['proposed_controls'] = json_decode($row['proposed_controls'] ?? '[]', true) ?? [];
+        return $row;
     }
 
     // ── Write ─────────────────────────────────────────────────────────────────
@@ -263,36 +273,43 @@ class AssessmentRow
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**
-     * Upsert the single existing-controls and proposed-controls records
-     * for a row (Phase 1 simplified: one record per phase per row).
+     * Save all control measures for a row, replacing any previously stored ones.
+     * Accepts each phase as an array of {description, control_type} objects.
+     * Plain strings are accepted for backward compatibility.
      */
     private static function saveControls(int $rowId, array $data): void
     {
-        $existing     = trim($data['existing_controls']      ?? '');
-        $existingType = trim($data['existing_controls_type'] ?? '');
-        $proposed     = trim($data['proposed_controls']      ?? '');
+        self::savePhaseControls($rowId, 'existing', $data['existing_controls'] ?? [], $data['existing_controls_type'] ?? null);
+        self::savePhaseControls($rowId, 'proposed', $data['proposed_controls'] ?? [], null);
+    }
 
+    private static function savePhaseControls(int $rowId, string $phase, mixed $controls, mixed $fallbackType): void
+    {
         Database::execute(
-            'DELETE FROM row_controls WHERE assessment_row_id = ? AND phase = \'existing\'',
-            [$rowId]
+            'DELETE FROM row_controls WHERE assessment_row_id = ? AND phase = ?',
+            [$rowId, $phase]
         );
-        if ($existing !== '') {
-            Database::execute(
-                'INSERT INTO row_controls (assessment_row_id, phase, description, control_type, sort_order)
-                 VALUES (?, \'existing\', ?, ?, 0)',
-                [$rowId, $existing, $existingType !== '' ? $existingType : null]
-            );
+
+        // Backward compatibility: plain string → single-item array
+        if (is_string($controls)) {
+            $desc = trim($controls);
+            $controls = $desc !== '' ? [['description' => $desc, 'control_type' => $fallbackType]] : [];
         }
 
-        Database::execute(
-            'DELETE FROM row_controls WHERE assessment_row_id = ? AND phase = \'proposed\'',
-            [$rowId]
-        );
-        if ($proposed !== '') {
+        if (!is_array($controls)) {
+            return;
+        }
+
+        foreach ($controls as $order => $ctrl) {
+            $desc = self::nullStr($ctrl['description'] ?? '');
+            if ($desc === null) {
+                continue;
+            }
+            $type = $phase === 'existing' ? self::nullStr($ctrl['control_type'] ?? '') : null;
             Database::execute(
                 'INSERT INTO row_controls (assessment_row_id, phase, description, control_type, sort_order)
-                 VALUES (?, \'proposed\', ?, NULL, 0)',
-                [$rowId, $proposed]
+                 VALUES (?, ?, ?, ?, ?)',
+                [$rowId, $phase, $desc, $type, (int) $order]
             );
         }
     }
