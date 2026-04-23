@@ -261,7 +261,7 @@ $oldTemplate  = $old['template_type'] ?? 'simple';
                             <span class="icon"><i class="fas fa-arrow-right"></i></span>
                             <span>Create Assessment &amp; Open Editor</span>
                         </button>
-                        <a href="/assessments" class="button is-light is-medium ml-2">Cancel</a>
+                        <a href="/assessments" id="cancelBtn" class="button is-light is-medium ml-2">Cancel</a>
                     </div>
                 </div>
             </div>
@@ -297,14 +297,28 @@ $oldTemplate  = $old['template_type'] ?? 'simple';
 
 <script>
 (function () {
+    var isDirty = false;
+    var CONFIRM_MSG = 'You have unsaved changes. Leave this page and discard them?';
+
+    function markDirty() { isDirty = true; }
+
     // Template type cards
     document.querySelectorAll('.template-type-card').forEach(function (card) {
         card.addEventListener('click', function () {
             document.querySelectorAll('.template-type-card').forEach(c => c.classList.remove('is-selected'));
             card.classList.add('is-selected');
             card.querySelector('.template-radio').checked = true;
+            markDirty();
         });
     });
+
+    // Watch all text/date/select/textarea fields for changes
+    document.getElementById('newAssessmentForm')
+        .querySelectorAll('input:not([type="hidden"]):not([type="radio"]), select, textarea')
+        .forEach(function (el) {
+            el.addEventListener('input',  markDirty);
+            el.addEventListener('change', markDirty);
+        });
 
     // Matrix description hint
     var matrixSel  = document.getElementById('matrix_id');
@@ -322,8 +336,26 @@ $oldTemplate  = $old['template_type'] ?? 'simple';
     matrixSel.addEventListener('change', updateMatrixDesc);
     updateMatrixDesc();
 
-    // Prevent double-submit
+    // Confirm before leaving when dirty — Cancel button and breadcrumb link
+    function confirmLeave(e) {
+        if (!isDirty) return;
+        if (!window.confirm(CONFIRM_MSG)) {
+            e.preventDefault();
+        }
+    }
+    document.getElementById('cancelBtn').addEventListener('click', confirmLeave);
+    document.querySelector('.breadcrumb a[href="/assessments"]').addEventListener('click', confirmLeave);
+
+    // Browser back / tab close guard
+    window.addEventListener('beforeunload', function (e) {
+        if (!isDirty) return;
+        e.preventDefault();
+        e.returnValue = CONFIRM_MSG;
+    });
+
+    // Prevent double-submit; clear dirty so beforeunload doesn't fire after submit
     document.getElementById('newAssessmentForm').addEventListener('submit', function () {
+        isDirty = false;
         var btn = document.getElementById('createBtn');
         btn.disabled = true;
         btn.classList.add('is-loading');
