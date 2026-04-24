@@ -516,18 +516,7 @@ body.has-navbar-fixed-top {
 }
 
 .assessment-table .actions-col {
-    width: 72px;
-}
-
-.row-actions-td {
-    vertical-align: top;
-    white-space: nowrap;
-}
-.row-actions-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.25rem;
+    width: 44px;
 }
 
 .assessment-table tbody td {
@@ -594,18 +583,49 @@ body.has-navbar-fixed-top {
     vertical-align: top;
 }
 
-/* ── Hazard rows grouped under the same activity ──────────────────────────── */
-.assessment-table tbody tr.is-hazard-sibling .activity-td {
+/* ── Activity-group bracket ───────────────────────────────────────────────── */
+
+/* First row of a multi-hazard group: open top of bracket */
+.assessment-table .activity-td.is-group-first {
     border-left: 3px solid var(--teal);
-    padding-left: 0.5rem;
-    background-color: rgba(47,158,174,0.03);
+    border-top: 2px solid rgba(47,158,174,0.4);
 }
-.assessment-table tbody tr.is-hazard-group-start .activity-td {
+
+/* Subsequent rows in the group: bracket continuation, no editable content */
+.activity-group-member-td {
     border-left: 3px solid var(--teal);
-    border-top: 1px solid rgba(47,158,174,0.25);
+    background-color: rgba(47,158,174,0.02);
 }
+
+/* Sibling hazard rows: softer row separator */
 .assessment-table tbody tr.is-hazard-sibling td {
-    border-bottom-color: rgba(47,158,174,0.15);
+    border-bottom-color: rgba(47,158,174,0.12);
+}
+
+/* ── Group footer row: "+ Add Hazard" ─────────────────────────────────────── */
+.assessment-table tbody tr.hazard-group-footer td {
+    padding-top: 0;
+    padding-bottom: 0.3rem;
+    border-bottom: 2px solid rgba(47,158,174,0.3);
+}
+
+.activity-footer-td {
+    border-left: 3px solid var(--teal);
+    padding-top: 0.2rem !important;
+    padding-bottom: 0.35rem !important;
+}
+
+.add-hazard-btn {
+    font-size: 0.75rem;
+    height: 1.6rem;
+    padding: 0 0.5rem;
+    color: var(--teal);
+    border-color: rgba(47,158,174,0.4);
+}
+.add-hazard-btn:hover {
+    background-color: rgba(47,158,174,0.08);
+    color: var(--teal);
+    border-color: var(--teal);
 }
 
 .assessment-table .is-level-select {

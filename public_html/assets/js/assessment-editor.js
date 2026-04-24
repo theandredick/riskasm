@@ -493,11 +493,14 @@
 
     // ── Row rendering ─────────────────────────────────────────────────────────
 
-    function renderRow(row, rowNum, isGrouped, isGroupStart) {
+    /**
+     * isGroupFirst: first row of a 2+ member activity group  (shows editable activity textarea)
+     * isGroupMember: subsequent row in a group               (shows empty bracketed activity cell)
+     */
+    function renderRow(row, rowNum, isGroupFirst, isGroupMember) {
         var tr = document.createElement('tr');
         tr.dataset.id = row.id;
-        if (isGrouped)    tr.classList.add('is-hazard-sibling');
-        if (isGroupStart) tr.classList.add('is-hazard-group-start');
+        if (isGroupMember) tr.classList.add('is-hazard-sibling');
 
         var cc = cfg.columnConfig;
 
@@ -516,8 +519,19 @@
         tdNum.textContent = rowNum;
         tr.appendChild(tdNum);
 
-        // Hazard description columns (textareas so text can wrap and be resized)
-        if (cc.show_activity_condition) tr.appendChild(makeActivityCell(row));
+        // Activity column
+        if (cc.show_activity_condition) {
+            if (isGroupMember) {
+                // Bracket continuation — no editable content, just the visual left border
+                var tdEmpty = document.createElement('td');
+                tdEmpty.className = 'activity-group-member-td';
+                tr.appendChild(tdEmpty);
+            } else {
+                var actTd = makeActivityCell(row);
+                if (isGroupFirst) actTd.classList.add('is-group-first');
+                tr.appendChild(actTd);
+            }
+        }
         tr.appendChild(makeTextarea(row, 'hazard', 'Describe the hazard…'));
         if (cc.show_exposure_description) tr.appendChild(makeTextarea(row, 'exposure_description', 'Exposure description'));
         if (cc.show_exposed_assets)       tr.appendChild(makeTextarea(row, 'exposed_assets', 'Persons / assets at risk'));
@@ -563,23 +577,9 @@
             if (cc.show_accept_yn) tr.appendChild(makeCheckbox(row, 'residual_risk_accept'));
         }
 
-        // Actions column: Add Hazard sibling + Delete
+        // Delete button
         if (canEdit) {
-            var tdAct = document.createElement('td');
-            tdAct.className = 'row-actions-td';
-            var actWrap = document.createElement('div');
-            actWrap.className = 'row-actions-wrap';
-
-            var sibBtn = document.createElement('button');
-            sibBtn.type      = 'button';
-            sibBtn.className = 'button is-teal is-small';
-            sibBtn.title     = 'Add another hazard for this activity';
-            sibBtn.innerHTML = '<span class="icon"><i class="fas fa-code-branch"></i></span>';
-            sibBtn.addEventListener('click', function () {
-                addHazardForActivity(row);
-            });
-            actWrap.appendChild(sibBtn);
-
+            var tdDel = document.createElement('td');
             var delBtn = document.createElement('button');
             delBtn.type      = 'button';
             delBtn.className = 'button is-danger-muted is-small';
@@ -589,16 +589,49 @@
                 if (!confirm('Delete this row?')) return;
                 deleteRow(row);
             });
-            actWrap.appendChild(delBtn);
-
-            tdAct.appendChild(actWrap);
-            tr.appendChild(tdAct);
+            tdDel.appendChild(delBtn);
+            tr.appendChild(tdDel);
         }
 
         return tr;
     }
 
     // ── Full table render ─────────────────────────────────────────────────────
+
+    /**
+     * Build the thin footer row that closes an activity group and offers
+     * a "+ Add Hazard" button — mirroring the "+ Add" button in the controls cell.
+     * lastRowInGroup is used to insert the new hazard at the correct position.
+     */
+    function renderGroupFooter(lastRowInGroup) {
+        var tr = document.createElement('tr');
+        tr.className = 'hazard-group-footer';
+
+        // Drag col (no handle — footer is not sortable)
+        tr.appendChild(document.createElement('td'));
+        // # col
+        tr.appendChild(document.createElement('td'));
+
+        // Activity footer cell: "+ Add Hazard" button, closes the bracket
+        var tdAct = document.createElement('td');
+        tdAct.className = 'activity-footer-td';
+        var addBtn = document.createElement('button');
+        addBtn.type      = 'button';
+        addBtn.className = 'button is-small is-light add-hazard-btn';
+        addBtn.innerHTML = '<span class="icon"><i class="fas fa-plus"></i></span><span>Add Hazard</span>';
+        addBtn.addEventListener('click', function () {
+            addHazardForActivity(lastRowInGroup);
+        });
+        tdAct.appendChild(addBtn);
+        tr.appendChild(tdAct);
+
+        // Span all remaining columns with one empty cell
+        var tdRest = document.createElement('td');
+        tdRest.colSpan = 99;
+        tr.appendChild(tdRest);
+
+        return tr;
+    }
 
     var sortableInstance = null;
 
@@ -611,16 +644,43 @@
             sortableInstance = null;
         }
 
+        var cc = cfg.columnConfig;
+        var showActivity = !!cc.show_activity_condition;
+
         tbody.innerHTML = '';
-        state.rows.forEach(function (row, idx) {
-            var prev = idx > 0 ? state.rows[idx - 1] : null;
-            var next = idx < state.rows.length - 1 ? state.rows[idx + 1] : null;
-            var sameAsPrev = prev && prev.activity_condition && prev.activity_condition === row.activity_condition;
-            var sameAsNext = next && next.activity_condition && next.activity_condition === row.activity_condition;
-            var isGrouped    = !!sameAsPrev;
-            var isGroupStart = !sameAsPrev && !!sameAsNext && !!row.activity_condition;
-            tbody.appendChild(renderRow(row, idx + 1, isGrouped, isGroupStart));
-        });
+        var rowNum = 0;
+        var i = 0;
+        while (i < state.rows.length) {
+            var row = state.rows[i];
+            var activity = row.activity_condition; // may be null
+
+            // Find the span of consecutive rows with the same non-empty activity
+            var groupEnd = i;
+            if (activity) {
+                while (
+                    groupEnd + 1 < state.rows.length &&
+                    state.rows[groupEnd + 1].activity_condition === activity
+                ) {
+                    groupEnd++;
+                }
+            }
+
+            var groupSize = groupEnd - i + 1;
+
+            for (var j = i; j <= groupEnd; j++) {
+                rowNum++;
+                var isGroupFirst  = showActivity && (j === i)    && groupSize > 1;
+                var isGroupMember = showActivity && (j !== i);
+                tbody.appendChild(renderRow(state.rows[j], rowNum, isGroupFirst, isGroupMember));
+            }
+
+            // Footer with "+ Add Hazard" — only when showing activity and there IS one
+            if (showActivity && canEdit && activity) {
+                tbody.appendChild(renderGroupFooter(state.rows[groupEnd]));
+            }
+
+            i = groupEnd + 1;
+        }
 
         updateEmptyState();
         updateRowCountLabel();
@@ -675,6 +735,7 @@
         if (typeof Sortable === 'undefined') return;
         sortableInstance = Sortable.create(tbody, {
             handle    : '.drag-handle',
+            draggable : 'tr:not(.hazard-group-footer)',
             animation : 150,
             ghostClass: 'sortable-ghost',
             onEnd     : function () {
