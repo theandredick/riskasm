@@ -629,17 +629,13 @@ body.has-navbar-fixed-top {
     border-bottom-color: rgba(47,158,174,0.12);
 }
 
-/* ── Group footer row: "+ Add Hazard" ─────────────────────────────────────── */
-.assessment-table tbody tr.hazard-group-footer td {
-    padding-top: 0;
-    padding-bottom: 0.3rem;
+/* ── Activity group: close bracket on the last hazard row ─────────────────── */
+.assessment-table tbody tr.is-group-last td {
     border-bottom: 2px solid rgba(47,158,174,0.3);
 }
-
-.activity-footer-td {
-    border-left: 3px solid var(--teal);
-    padding-top: 0.2rem !important;
-    padding-bottom: 0.35rem !important;
+.assessment-table tbody tr.is-group-last .activity-group-member-td,
+.assessment-table tbody tr.is-group-last .activity-td {
+    border-bottom-color: rgba(47,158,174,0.3);
 }
 
 .add-hazard-btn {

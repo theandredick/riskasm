@@ -103,6 +103,25 @@
         }
     }
 
+    // ── Sticky header fix ────────────────────────────────────────────────────
+    /**
+     * Measure the rendered height of the first thead row (#assessment-thead)
+     * and apply that as the CSS top value for the sub-header row (#assessment-subhead).
+     * This is more reliable than the hard-coded "2rem" in the stylesheet because
+     * the actual pixel height depends on fonts, zoom level, and browser defaults.
+     */
+    function fixStickySubhead() {
+        var row1 = document.getElementById('assessment-thead');
+        var row2 = document.getElementById('assessment-subhead');
+        if (!row1 || !row2) return;
+        var h = row1.getBoundingClientRect().height;
+        if (h > 0) {
+            row2.querySelectorAll('th').forEach(function (th) {
+                th.style.top = h + 'px';
+            });
+        }
+    }
+
     // ── Row model helpers ─────────────────────────────────────────────────────
 
     function emptyRow() {
@@ -380,10 +399,10 @@
 
     /**
      * Build the hazard cell.
-     * Contains the hazard textarea plus an "Add Hazard" button (when
-     * show_activity_condition is on), mirroring the controls-cell pattern.
+     * showAddBtn — when true (last row of a named-activity group) renders the
+     *              "+ Add Hazard" button; false for all other rows.
      */
-    function makeHazardCell(row) {
+    function makeHazardCell(row, showAddBtn) {
         var td = document.createElement('td');
         td.className = 'hazard-td';
 
@@ -402,7 +421,7 @@
         }
         td.appendChild(ta);
 
-        if (canEdit && cfg.columnConfig.show_activity_condition) {
+        if (canEdit && showAddBtn) {
             var addBtn = document.createElement('button');
             addBtn.type      = 'button';
             addBtn.className = 'button is-small is-light add-hazard-btn';
@@ -531,11 +550,13 @@
     /**
      * isGroupFirst: first (or only) row of an activity group — shows editable activity textarea + bracket
      * isGroupMember: subsequent row in a group               — shows empty bracketed activity cell
+     * isGroupLast:  last (or only) row of a named-activity group — shows "+ Add Hazard" button
      */
-    function renderRow(row, rowNum, isGroupFirst, isGroupMember) {
+    function renderRow(row, rowNum, isGroupFirst, isGroupMember, isGroupLast) {
         var tr = document.createElement('tr');
         tr.dataset.id = row.id;
         if (isGroupMember) tr.classList.add('is-hazard-sibling');
+        if (isGroupLast)   tr.classList.add('is-group-last');
 
         var cc = cfg.columnConfig;
 
@@ -567,7 +588,7 @@
                 tr.appendChild(actTd);
             }
         }
-        tr.appendChild(makeHazardCell(row));
+        tr.appendChild(makeHazardCell(row, !!isGroupLast));
         if (cc.show_exposure_description) tr.appendChild(makeTextarea(row, 'exposure_description', 'Exposure description'));
         if (cc.show_exposed_assets)       tr.appendChild(makeTextarea(row, 'exposed_assets', 'Persons / assets at risk'));
         tr.appendChild(makeTextarea(row, 'effect', 'Potential effect'));
@@ -633,42 +654,6 @@
 
     // ── Full table render ─────────────────────────────────────────────────────
 
-    /**
-     * Build the thin footer row that closes an activity group and offers
-     * a "+ Add Hazard" button — mirroring the "+ Add" button in the controls cell.
-     * lastRowInGroup is used to insert the new hazard at the correct position.
-     */
-    function renderGroupFooter(lastRowInGroup) {
-        var tr = document.createElement('tr');
-        tr.className = 'hazard-group-footer';
-
-        // Drag col (no handle — footer is not sortable)
-        tr.appendChild(document.createElement('td'));
-        // # col
-        tr.appendChild(document.createElement('td'));
-
-        // Activity footer cell: "+ Add Hazard" button, closes the bracket
-        var tdAct = document.createElement('td');
-        tdAct.className = 'activity-footer-td';
-        var addBtn = document.createElement('button');
-        addBtn.type      = 'button';
-        addBtn.className = 'button is-small is-light add-hazard-btn';
-        addBtn.title     = 'Add another hazard under this activity';
-        addBtn.innerHTML = '<span class="icon"><i class="fas fa-plus"></i></span><span>Add Hazard</span>';
-        addBtn.addEventListener('click', function () {
-            addHazardForActivity(lastRowInGroup);
-        });
-        tdAct.appendChild(addBtn);
-        tr.appendChild(tdAct);
-
-        // Span all remaining columns with one empty cell
-        var tdRest = document.createElement('td');
-        tdRest.colSpan = 99;
-        tr.appendChild(tdRest);
-
-        return tr;
-    }
-
     var sortableInstance = null;
 
     function render() {
@@ -707,12 +692,9 @@
                 rowNum++;
                 var isGroupFirst  = showActivity && (j === i) && !!activity;
                 var isGroupMember = showActivity && (j !== i);
-                tbody.appendChild(renderRow(state.rows[j], rowNum, isGroupFirst, isGroupMember));
-            }
-
-            // Footer with "+ Add Hazard" — only when showing activity and there IS one
-            if (showActivity && canEdit && activity) {
-                tbody.appendChild(renderGroupFooter(state.rows[groupEnd]));
+                // Only the last row of a named-activity group gets the "+ Add Hazard" button.
+                var isGroupLast   = showActivity && canEdit && (j === groupEnd) && !!activity;
+                tbody.appendChild(renderRow(state.rows[j], rowNum, isGroupFirst, isGroupMember, isGroupLast));
             }
 
             i = groupEnd + 1;
@@ -782,7 +764,7 @@
 
         sortableInstance = Sortable.create(tbody, {
             handle    : '.drag-handle',
-            draggable : 'tr:not(.hazard-group-footer)',
+            draggable : 'tr',
             animation : 150,
             ghostClass: 'sortable-ghost',
 
@@ -792,11 +774,6 @@
              * identical (possibly null) activity_condition values.
              */
             onMove: function (evt) {
-                // Never allow dropping onto/adjacent to a footer row
-                if (evt.related && evt.related.classList.contains('hazard-group-footer')) {
-                    return false;
-                }
-
                 var draggedRow = rowForEl(evt.dragged);
                 var relatedRow = rowForEl(evt.related);
 
@@ -891,6 +868,7 @@
         }
 
         render();
+        fixStickySubhead();
         setupEvents();
     }
 
