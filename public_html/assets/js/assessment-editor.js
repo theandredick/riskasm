@@ -494,8 +494,8 @@
     // ── Row rendering ─────────────────────────────────────────────────────────
 
     /**
-     * isGroupFirst: first row of a 2+ member activity group  (shows editable activity textarea)
-     * isGroupMember: subsequent row in a group               (shows empty bracketed activity cell)
+     * isGroupFirst: first (or only) row of an activity group — shows editable activity textarea + bracket
+     * isGroupMember: subsequent row in a group               — shows empty bracketed activity cell
      */
     function renderRow(row, rowNum, isGroupFirst, isGroupMember) {
         var tr = document.createElement('tr');
@@ -577,9 +577,25 @@
             if (cc.show_accept_yn) tr.appendChild(makeCheckbox(row, 'residual_risk_accept'));
         }
 
-        // Delete button
+        // Actions: add-hazard (when activity column on) + delete
         if (canEdit) {
             var tdDel = document.createElement('td');
+            var actionsWrap = document.createElement('div');
+            actionsWrap.className = 'row-actions-wrap';
+            tdDel.appendChild(actionsWrap);
+
+            if (cc.show_activity_condition) {
+                var addHazBtn = document.createElement('button');
+                addHazBtn.type      = 'button';
+                addHazBtn.className = 'button is-small is-light add-hazard-btn';
+                addHazBtn.title     = 'Add another hazard for the same activity';
+                addHazBtn.innerHTML = '<span class="icon"><i class="fas fa-plus"></i></span>';
+                addHazBtn.addEventListener('click', function () {
+                    addHazardForActivity(row);
+                });
+                actionsWrap.appendChild(addHazBtn);
+            }
+
             var delBtn = document.createElement('button');
             delBtn.type      = 'button';
             delBtn.className = 'button is-danger-muted is-small';
@@ -589,7 +605,7 @@
                 if (!confirm('Delete this row?')) return;
                 deleteRow(row);
             });
-            tdDel.appendChild(delBtn);
+            actionsWrap.appendChild(delBtn);
             tr.appendChild(tdDel);
         }
 
@@ -669,7 +685,7 @@
 
             for (var j = i; j <= groupEnd; j++) {
                 rowNum++;
-                var isGroupFirst  = showActivity && (j === i)    && groupSize > 1;
+                var isGroupFirst  = showActivity && (j === i) && !!activity;
                 var isGroupMember = showActivity && (j !== i);
                 tbody.appendChild(renderRow(state.rows[j], rowNum, isGroupFirst, isGroupMember));
             }

@@ -516,7 +516,15 @@ body.has-navbar-fixed-top {
 }
 
 .assessment-table .actions-col {
-    width: 44px;
+    width: auto;
+}
+
+/* Row actions wrapper: stack add-hazard + delete vertically */
+.row-actions-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    align-items: center;
 }
 
 .assessment-table tbody td {
@@ -585,7 +593,7 @@ body.has-navbar-fixed-top {
 
 /* ── Activity-group bracket ───────────────────────────────────────────────── */
 
-/* First row of a multi-hazard group: open top of bracket */
+/* First row of an activity group (single or multi-hazard): open top of bracket */
 .assessment-table .activity-td.is-group-first {
     border-left: 3px solid var(--teal);
     border-top: 2px solid rgba(47,158,174,0.4);
