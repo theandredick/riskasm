@@ -524,7 +524,8 @@ body.has-navbar-fixed-top {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
-    align-items: center;
+    align-items: flex-start;
+    white-space: nowrap;
 }
 
 .assessment-table tbody td {

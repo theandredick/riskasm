@@ -378,11 +378,7 @@
         return td;
     }
 
-    /**
-     * Build the activity/condition cell.
-     * Includes the textarea plus an "Add Hazard" button so the user can add
-     * another hazard row that shares this same activity without retyping it.
-     */
+    /** Build the activity/condition cell (just the editable textarea). */
     function makeActivityCell(row) {
         var td = document.createElement('td');
         td.className = 'activity-td';
@@ -589,7 +585,7 @@
                 addHazBtn.type      = 'button';
                 addHazBtn.className = 'button is-small is-light add-hazard-btn';
                 addHazBtn.title     = 'Add another hazard for the same activity';
-                addHazBtn.innerHTML = '<span class="icon"><i class="fas fa-plus"></i></span>';
+                addHazBtn.innerHTML = '<span class="icon"><i class="fas fa-plus"></i></span><span>Add Hazard</span>';
                 addHazBtn.addEventListener('click', function () {
                     addHazardForActivity(row);
                 });
@@ -634,6 +630,7 @@
         var addBtn = document.createElement('button');
         addBtn.type      = 'button';
         addBtn.className = 'button is-small is-light add-hazard-btn';
+        addBtn.title     = 'Add another hazard under this activity';
         addBtn.innerHTML = '<span class="icon"><i class="fas fa-plus"></i></span><span>Add Hazard</span>';
         addBtn.addEventListener('click', function () {
             addHazardForActivity(lastRowInGroup);
