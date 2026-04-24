@@ -378,6 +378,45 @@
         return td;
     }
 
+    /**
+     * Build the hazard cell.
+     * Contains the hazard textarea plus an "Add Hazard" button (when
+     * show_activity_condition is on), mirroring the controls-cell pattern.
+     */
+    function makeHazardCell(row) {
+        var td = document.createElement('td');
+        td.className = 'hazard-td';
+
+        var ta = document.createElement('textarea');
+        ta.className   = 'textarea is-small';
+        ta.rows        = 1;
+        ta.value       = row.hazard || '';
+        ta.placeholder = 'Describe the hazard…';
+        if (!canEdit) {
+            ta.readOnly = true;
+        } else {
+            ta.addEventListener('change', function () {
+                row.hazard = nullStr(ta.value);
+                saveToStorage();
+            });
+        }
+        td.appendChild(ta);
+
+        if (canEdit && cfg.columnConfig.show_activity_condition) {
+            var addBtn = document.createElement('button');
+            addBtn.type      = 'button';
+            addBtn.className = 'button is-small is-light add-hazard-btn';
+            addBtn.title     = 'Add another hazard for the same activity';
+            addBtn.innerHTML = '<span class="icon"><i class="fas fa-plus"></i></span><span>Add Hazard</span>';
+            addBtn.addEventListener('click', function () {
+                addHazardForActivity(row);
+            });
+            td.appendChild(addBtn);
+        }
+
+        return td;
+    }
+
     /** Build the activity/condition cell (just the editable textarea). */
     function makeActivityCell(row) {
         var td = document.createElement('td');
@@ -528,7 +567,7 @@
                 tr.appendChild(actTd);
             }
         }
-        tr.appendChild(makeTextarea(row, 'hazard', 'Describe the hazard…'));
+        tr.appendChild(makeHazardCell(row));
         if (cc.show_exposure_description) tr.appendChild(makeTextarea(row, 'exposure_description', 'Exposure description'));
         if (cc.show_exposed_assets)       tr.appendChild(makeTextarea(row, 'exposed_assets', 'Persons / assets at risk'));
         tr.appendChild(makeTextarea(row, 'effect', 'Potential effect'));
@@ -573,25 +612,9 @@
             if (cc.show_accept_yn) tr.appendChild(makeCheckbox(row, 'residual_risk_accept'));
         }
 
-        // Actions: add-hazard (when activity column on) + delete
+        // Actions: delete only (Add Hazard is now inside the hazard cell)
         if (canEdit) {
             var tdDel = document.createElement('td');
-            var actionsWrap = document.createElement('div');
-            actionsWrap.className = 'row-actions-wrap';
-            tdDel.appendChild(actionsWrap);
-
-            if (cc.show_activity_condition) {
-                var addHazBtn = document.createElement('button');
-                addHazBtn.type      = 'button';
-                addHazBtn.className = 'button is-small is-light add-hazard-btn';
-                addHazBtn.title     = 'Add another hazard for the same activity';
-                addHazBtn.innerHTML = '<span class="icon"><i class="fas fa-plus"></i></span><span>Add Hazard</span>';
-                addHazBtn.addEventListener('click', function () {
-                    addHazardForActivity(row);
-                });
-                actionsWrap.appendChild(addHazBtn);
-            }
-
             var delBtn = document.createElement('button');
             delBtn.type      = 'button';
             delBtn.className = 'button is-danger-muted is-small';
@@ -601,7 +624,7 @@
                 if (!confirm('Delete this row?')) return;
                 deleteRow(row);
             });
-            actionsWrap.appendChild(delBtn);
+            tdDel.appendChild(delBtn);
             tr.appendChild(tdDel);
         }
 
@@ -746,12 +769,44 @@
 
     function initSortable(tbody) {
         if (typeof Sortable === 'undefined') return;
+
+        /** Return the row object for a given <tr> element, or null. */
+        function rowForEl(el) {
+            if (!el || !el.dataset || !el.dataset.id) return null;
+            var id = parseInt(el.dataset.id, 10);
+            for (var i = 0; i < state.rows.length; i++) {
+                if (state.rows[i].id === id) return state.rows[i];
+            }
+            return null;
+        }
+
         sortableInstance = Sortable.create(tbody, {
             handle    : '.drag-handle',
             draggable : 'tr:not(.hazard-group-footer)',
             animation : 150,
             ghostClass: 'sortable-ghost',
-            onEnd     : function () {
+
+            /**
+             * Prevent a hazard row from being dragged into a different
+             * activity group.  Rows share the same activity when both have
+             * identical (possibly null) activity_condition values.
+             */
+            onMove: function (evt) {
+                // Never allow dropping onto/adjacent to a footer row
+                if (evt.related && evt.related.classList.contains('hazard-group-footer')) {
+                    return false;
+                }
+
+                var draggedRow = rowForEl(evt.dragged);
+                var relatedRow = rowForEl(evt.related);
+
+                if (!draggedRow || !relatedRow) return false;
+
+                // Same activity (including both null) → allow reorder
+                return draggedRow.activity_condition === relatedRow.activity_condition;
+            },
+
+            onEnd: function () {
                 // Re-sync state.rows order with DOM order
                 var trs = tbody.querySelectorAll('tr');
                 var newOrder = Array.from(trs).map(function (tr) {

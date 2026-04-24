@@ -468,6 +468,24 @@ body.has-navbar-fixed-top {
     min-width: 900px;
 }
 
+/*
+ * Sticky table header.
+ *
+ * #table-wrapper uses overflow-x:auto which (per spec) also forces
+ * overflow-y to auto, making it the scroll ancestor.  We therefore give
+ * the wrapper a max-height so it is a proper scroll container and the
+ * thead rows can stick at top:0 inside it.
+ *
+ * The calc() below leaves room for: fixed navbar (3.25rem) + section
+ * padding (4.5rem) + page header / breadcrumbs / tag strip (~7rem) + the
+ * "Add Row" bar below the table (~3rem).
+ */
+#table-wrapper {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: calc(100vh - 18rem);
+}
+
 .assessment-table thead th {
     background-color: var(--ocean);
     color: rgba(255,255,255,0.9);
@@ -481,7 +499,7 @@ body.has-navbar-fixed-top {
     border: none;
     position: sticky;
     top: 0;
-    z-index: 2;
+    z-index: 3;
 }
 
 .assessment-table #assessment-subhead th {
@@ -489,6 +507,9 @@ body.has-navbar-fixed-top {
     color: rgba(255,255,255,0.65);
     font-size: 0.68rem;
     padding: 0.25rem 0.5rem;
+    position: sticky;
+    top: 2rem;   /* sits just below the main header row (~2rem tall) */
+    z-index: 2;
 }
 
 .assessment-table #assessment-subhead .subhead-cell {
@@ -519,13 +540,10 @@ body.has-navbar-fixed-top {
     width: auto;
 }
 
-/* Row actions wrapper: stack add-hazard + delete vertically */
-.row-actions-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    align-items: flex-start;
-    white-space: nowrap;
+/* ── Hazard cell (textarea + optional "Add Hazard" button) ───────────────── */
+.hazard-td {
+    min-width: 160px;
+    vertical-align: top;
 }
 
 .assessment-table tbody td {

@@ -220,7 +220,7 @@ $showAccept    = !empty($cc['show_accept_yn']);
 </div>
 
 <!-- ── Assessment table wrapper ───────────────────────────────────────────── -->
-<div class="box p-0 mb-4" style="overflow-x:auto;" id="table-wrapper">
+<div class="box p-0 mb-4" id="table-wrapper">
     <table class="table is-fullwidth is-narrow assessment-table" id="assessment-table">
         <thead>
             <tr id="assessment-thead">
