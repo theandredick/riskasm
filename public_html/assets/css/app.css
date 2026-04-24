@@ -516,7 +516,18 @@ body.has-navbar-fixed-top {
 }
 
 .assessment-table .actions-col {
-    width: 44px;
+    width: 72px;
+}
+
+.row-actions-td {
+    vertical-align: top;
+    white-space: nowrap;
+}
+.row-actions-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
 }
 
 .assessment-table tbody td {
@@ -577,23 +588,10 @@ body.has-navbar-fixed-top {
     padding: 0 0.5rem;
 }
 
-/* ── Activity cell with "Add Hazard" button ───────────────────────────────── */
+/* ── Activity cell ────────────────────────────────────────────────────────── */
 .activity-td {
     min-width: 140px;
     vertical-align: top;
-}
-.add-hazard-btn {
-    font-size: 0.75rem;
-    height: 1.6rem;
-    padding: 0 0.5rem;
-    margin-top: 0.3rem;
-    color: var(--teal);
-    border-color: var(--teal);
-}
-.add-hazard-btn:hover {
-    background-color: rgba(47,158,174,0.08);
-    color: var(--teal);
-    border-color: var(--teal);
 }
 
 /* ── Hazard rows grouped under the same activity ──────────────────────────── */

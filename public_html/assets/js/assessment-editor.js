@@ -190,7 +190,7 @@
         var td = document.createElement('td');
         var ta = document.createElement('textarea');
         ta.className   = 'textarea is-small';
-        ta.rows        = 2;
+        ta.rows        = 1;
         ta.value       = row[field] || '';
         ta.placeholder = placeholder || '';
         if (!canEdit) {
@@ -299,7 +299,7 @@
 
                 var ta = document.createElement('textarea');
                 ta.className   = 'textarea is-small';
-                ta.rows        = 2;
+                ta.rows        = 1;
                 ta.value       = ctrl.description || '';
                 ta.placeholder = 'Describe control measure…';
                 if (!canEdit) {
@@ -389,7 +389,7 @@
 
         var ta = document.createElement('textarea');
         ta.className   = 'textarea is-small';
-        ta.rows        = 2;
+        ta.rows        = 1;
         ta.value       = row.activity_condition || '';
         ta.placeholder = 'Activity / condition';
         if (!canEdit) {
@@ -401,18 +401,6 @@
             });
         }
         td.appendChild(ta);
-
-        if (canEdit) {
-            var addBtn = document.createElement('button');
-            addBtn.type      = 'button';
-            addBtn.className = 'button is-small is-outlined add-hazard-btn';
-            addBtn.title     = 'Add another hazard for this activity';
-            addBtn.innerHTML = '<span class="icon"><i class="fas fa-plus"></i></span><span>Hazard</span>';
-            addBtn.addEventListener('click', function () {
-                addHazardForActivity(row);
-            });
-            td.appendChild(addBtn);
-        }
 
         return td;
     }
@@ -575,9 +563,23 @@
             if (cc.show_accept_yn) tr.appendChild(makeCheckbox(row, 'residual_risk_accept'));
         }
 
-        // Delete button
+        // Actions column: Add Hazard sibling + Delete
         if (canEdit) {
-            var tdDel = document.createElement('td');
+            var tdAct = document.createElement('td');
+            tdAct.className = 'row-actions-td';
+            var actWrap = document.createElement('div');
+            actWrap.className = 'row-actions-wrap';
+
+            var sibBtn = document.createElement('button');
+            sibBtn.type      = 'button';
+            sibBtn.className = 'button is-teal is-small';
+            sibBtn.title     = 'Add another hazard for this activity';
+            sibBtn.innerHTML = '<span class="icon"><i class="fas fa-code-branch"></i></span>';
+            sibBtn.addEventListener('click', function () {
+                addHazardForActivity(row);
+            });
+            actWrap.appendChild(sibBtn);
+
             var delBtn = document.createElement('button');
             delBtn.type      = 'button';
             delBtn.className = 'button is-danger-muted is-small';
@@ -587,8 +589,10 @@
                 if (!confirm('Delete this row?')) return;
                 deleteRow(row);
             });
-            tdDel.appendChild(delBtn);
-            tr.appendChild(tdDel);
+            actWrap.appendChild(delBtn);
+
+            tdAct.appendChild(actWrap);
+            tr.appendChild(tdAct);
         }
 
         return tr;
