@@ -1024,8 +1024,17 @@
                 var val  = document.getElementById('statusFormValue');
                 if (form && val) {
                     val.value = link.dataset.status;
+                    isDirty = false; // intentional navigation — suppress beforeunload prompt
                     form.submit();
                 }
+            });
+        });
+
+        // Suppress the beforeunload prompt for any intentional form submission
+        // (Edit Details, Duplicate, Delete, Export, Status).
+        document.querySelectorAll('form').forEach(function (form) {
+            form.addEventListener('submit', function () {
+                isDirty = false;
             });
         });
 
@@ -1054,9 +1063,12 @@
             });
         });
 
-        // Auto-sync on page unload (sendBeacon)
-        window.addEventListener('beforeunload', function () {
-            if (isDirty) syncToServer(true);
+        // Warn before leaving with unsaved changes; also attempt a beacon save.
+        window.addEventListener('beforeunload', function (e) {
+            if (!isDirty) return;
+            syncToServer(true);
+            e.preventDefault();
+            e.returnValue = '';  // required for the browser dialog to appear
         });
 
         // Auto-sync when tab becomes hidden
