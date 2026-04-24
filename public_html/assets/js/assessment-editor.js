@@ -921,7 +921,9 @@
             if (data.success && Array.isArray(data.rows)) {
                 state.rows       = data.rows.map(normalizeRow);
                 state.deletedIds = [];
-                saveToStorage();
+                // Server is now the source of truth — remove the local draft so
+                // the "unsaved changes" banner does not reappear on the next visit.
+                clearStorage();
                 markDirty(false);
                 render();
                 var banner = document.getElementById('local-draft-banner');
