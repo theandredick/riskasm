@@ -560,12 +560,25 @@
 
         var cc = cfg.columnConfig;
 
-        // Drag handle
+        // Drag handle — appearance varies by role in a group
         var tdDrag = document.createElement('td');
-        tdDrag.className = canEdit ? 'drag-handle' : 'drag-col';
-        if (canEdit) {
+        if (!canEdit) {
+            tdDrag.className = 'drag-col';
+        } else if (isGroupFirst && !isGroupLast) {
+            // Multi-hazard group leader: drags the whole group
+            tdDrag.className = 'drag-handle drag-handle--group';
+            tdDrag.title     = 'Drag to move entire activity group';
+            tdDrag.innerHTML = '<span class="icon"><i class="fas fa-grip-vertical"></i></span>';
+        } else if (isGroupMember) {
+            // Hazard sibling: reorder within the group only
+            tdDrag.className = 'drag-handle drag-handle--member';
+            tdDrag.title     = 'Drag to reorder within this group';
+            tdDrag.innerHTML = '<span class="icon"><i class="fas fa-grip-lines"></i></span>';
+        } else {
+            // Single-hazard row (with or without activity)
+            tdDrag.className = 'drag-handle';
+            tdDrag.title     = 'Drag to reorder';
             tdDrag.innerHTML = '<span class="icon has-text-grey-light"><i class="fas fa-grip-vertical"></i></span>';
-            tdDrag.title = 'Drag to reorder';
         }
         tr.appendChild(tdDrag);
 
@@ -766,38 +779,110 @@
             return null;
         }
 
+        /**
+         * True when this row is a non-first member of an activity group,
+         * i.e. the row directly above it shares the same activity_condition.
+         */
+        function isGroupMemberRow(row) {
+            if (!row || !row.activity_condition) return false;
+            var idx = state.rows.findIndex(function (r) { return r.id === row.id; });
+            if (idx <= 0) return false;
+            return state.rows[idx - 1].activity_condition === row.activity_condition;
+        }
+
+        /**
+         * dragContext is set in onStart when the user begins dragging a
+         * multi-hazard group leader.  It records the leader row and all its
+         * consecutive sibling rows so onEnd can re-attach them after the drop.
+         * null means we are doing an ordinary single-row drag.
+         */
+        var dragContext = null;
+
         sortableInstance = Sortable.create(tbody, {
             handle    : '.drag-handle',
             draggable : 'tr',
             animation : 150,
             ghostClass: 'sortable-ghost',
 
-            /**
-             * Prevent a hazard row from being dragged into a different
-             * activity group.  Rows share the same activity when both have
-             * identical (possibly null) activity_condition values.
-             */
+            onStart: function (evt) {
+                dragContext = null;
+                var draggedRow = rowForEl(evt.item);
+                if (!draggedRow || !draggedRow.activity_condition) return;
+
+                var idx = state.rows.findIndex(function (r) { return r.id === draggedRow.id; });
+                var prevRow = idx > 0 ? state.rows[idx - 1] : null;
+                var isFirst = !prevRow || prevRow.activity_condition !== draggedRow.activity_condition;
+                if (!isFirst) return; // sibling being dragged, not the group leader
+
+                // Collect consecutive siblings (rows that immediately follow with the same activity)
+                var siblings = [];
+                for (var k = idx + 1; k < state.rows.length; k++) {
+                    if (state.rows[k].activity_condition === draggedRow.activity_condition) {
+                        siblings.push(state.rows[k]);
+                    } else {
+                        break;
+                    }
+                }
+                if (siblings.length === 0) return; // single-row group — no special handling
+
+                dragContext = { row: draggedRow, siblings: siblings };
+            },
+
             onMove: function (evt) {
                 var draggedRow = rowForEl(evt.dragged);
                 var relatedRow = rowForEl(evt.related);
+                if (!draggedRow || !relatedRow) return true;
 
-                if (!draggedRow || !relatedRow) return false;
+                if (dragContext) {
+                    // Multi-hazard group leader being dragged.
+                    // Block insertion BEFORE a non-first group member (would split another group).
+                    // Inserting AFTER a member (evt.willInsertAfter) is fine — it lands after the group.
+                    return !(isGroupMemberRow(relatedRow) && !evt.willInsertAfter);
+                }
 
-                // Same activity (including both null) → allow reorder
-                return draggedRow.activity_condition === relatedRow.activity_condition;
+                // Hazard sibling (non-leader): restrict to within the same group only.
+                if (isGroupMemberRow(draggedRow)) {
+                    return draggedRow.activity_condition === relatedRow.activity_condition;
+                }
+
+                // Single-row group or null-activity row: freely movable, but do not
+                // allow insertion before a non-first group member (would split a group).
+                return !(isGroupMemberRow(relatedRow) && !evt.willInsertAfter);
             },
 
             onEnd: function () {
-                // Re-sync state.rows order with DOM order
+                // Re-sync state.rows order from the current DOM order.
+                // For a group-leader drag SortableJS only moved the leader element;
+                // siblings are still in their original DOM positions.
                 var trs = tbody.querySelectorAll('tr');
-                var newOrder = Array.from(trs).map(function (tr) {
-                    return parseInt(tr.dataset.id, 10);
+                var newOrder = [];
+                trs.forEach(function (tr) {
+                    var id = parseInt(tr.dataset.id, 10);
+                    if (!isNaN(id)) newOrder.push(id);
                 });
                 var rowMap = {};
                 state.rows.forEach(function (r) { rowMap[r.id] = r; });
                 state.rows = newOrder.map(function (id) { return rowMap[id]; }).filter(Boolean);
-                state.rows.forEach(function (r, i) { r.sort_order = i; });
 
+                if (dragContext) {
+                    // Pull siblings out of wherever they ended up in the re-synced order
+                    // and place them immediately after their group leader.
+                    var siblingIds = {};
+                    dragContext.siblings.forEach(function (s) { siblingIds[s.id] = true; });
+                    state.rows = state.rows.filter(function (r) { return !siblingIds[r.id]; });
+
+                    var leaderIdx = state.rows.findIndex(function (r) { return r.id === dragContext.row.id; });
+                    if (leaderIdx !== -1) {
+                        // Insert siblings in order right after the leader
+                        Array.prototype.splice.apply(
+                            state.rows,
+                            [leaderIdx + 1, 0].concat(dragContext.siblings)
+                        );
+                    }
+                    dragContext = null;
+                }
+
+                state.rows.forEach(function (r, i) { r.sort_order = i; });
                 saveToStorage();
                 render(); // recalculates grouping classes and row numbers
             }

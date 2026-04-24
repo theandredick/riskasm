@@ -670,6 +670,25 @@ body.has-navbar-fixed-top {
     cursor: grabbing;
 }
 
+/* Group-leader handle: teal accent signals "drags the whole group" */
+.drag-handle--group .icon {
+    color: var(--teal);
+    opacity: 0.65;
+    transition: opacity 0.15s;
+}
+.drag-handle--group:hover .icon {
+    opacity: 1;
+}
+
+/* Sibling handle: dimmed to signal "reorders within group only" */
+.drag-handle--member .icon {
+    color: #c8d8e0;
+    transition: color 0.15s;
+}
+.drag-handle--member:hover .icon {
+    color: #8aabb8;
+}
+
 .sortable-ghost {
     opacity: 0.4;
     background-color: var(--sand) !important;
