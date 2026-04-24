@@ -692,8 +692,12 @@
                 rowNum++;
                 var isGroupFirst  = showActivity && (j === i) && !!activity;
                 var isGroupMember = showActivity && (j !== i);
-                // Only the last row of a named-activity group gets the "+ Add Hazard" button.
-                var isGroupLast   = showActivity && canEdit && (j === groupEnd) && !!activity;
+                // Only the last row of a group gets the "+ Add Hazard" button.
+                // We do NOT gate this on !!activity: the button must appear even when the
+                // activity field is still blank, because isGroupLast is computed once at
+                // render time and typing into the activity textarea does not trigger a
+                // re-render.
+                var isGroupLast   = showActivity && canEdit && (j === groupEnd);
                 tbody.appendChild(renderRow(state.rows[j], rowNum, isGroupFirst, isGroupMember, isGroupLast));
             }
 
