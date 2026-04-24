@@ -577,13 +577,46 @@ body.has-navbar-fixed-top {
     padding: 0 0.5rem;
 }
 
+/* ── Activity cell with "Add Hazard" button ───────────────────────────────── */
+.activity-td {
+    min-width: 140px;
+    vertical-align: top;
+}
+.add-hazard-btn {
+    font-size: 0.75rem;
+    height: 1.6rem;
+    padding: 0 0.5rem;
+    margin-top: 0.3rem;
+    color: var(--teal);
+    border-color: var(--teal);
+}
+.add-hazard-btn:hover {
+    background-color: rgba(47,158,174,0.08);
+    color: var(--teal);
+    border-color: var(--teal);
+}
+
+/* ── Hazard rows grouped under the same activity ──────────────────────────── */
+.assessment-table tbody tr.is-hazard-sibling .activity-td {
+    border-left: 3px solid var(--teal);
+    padding-left: 0.5rem;
+    background-color: rgba(47,158,174,0.03);
+}
+.assessment-table tbody tr.is-hazard-group-start .activity-td {
+    border-left: 3px solid var(--teal);
+    border-top: 1px solid rgba(47,158,174,0.25);
+}
+.assessment-table tbody tr.is-hazard-sibling td {
+    border-bottom-color: rgba(47,158,174,0.15);
+}
+
 .assessment-table .is-level-select {
     min-width: 90px;
 }
 
 .assessment-table .risk-badge-td {
     text-align: center;
-    vertical-align: middle;
+    vertical-align: top;
     white-space: nowrap;
 }
 

@@ -378,6 +378,75 @@
         return td;
     }
 
+    /**
+     * Build the activity/condition cell.
+     * Includes the textarea plus an "Add Hazard" button so the user can add
+     * another hazard row that shares this same activity without retyping it.
+     */
+    function makeActivityCell(row) {
+        var td = document.createElement('td');
+        td.className = 'activity-td';
+
+        var ta = document.createElement('textarea');
+        ta.className   = 'textarea is-small';
+        ta.rows        = 2;
+        ta.value       = row.activity_condition || '';
+        ta.placeholder = 'Activity / condition';
+        if (!canEdit) {
+            ta.readOnly = true;
+        } else {
+            ta.addEventListener('change', function () {
+                row.activity_condition = nullStr(ta.value);
+                saveToStorage();
+            });
+        }
+        td.appendChild(ta);
+
+        if (canEdit) {
+            var addBtn = document.createElement('button');
+            addBtn.type      = 'button';
+            addBtn.className = 'button is-small is-outlined add-hazard-btn';
+            addBtn.title     = 'Add another hazard for this activity';
+            addBtn.innerHTML = '<span class="icon"><i class="fas fa-plus"></i></span><span>Hazard</span>';
+            addBtn.addEventListener('click', function () {
+                addHazardForActivity(row);
+            });
+            td.appendChild(addBtn);
+        }
+
+        return td;
+    }
+
+    /** Insert a new blank hazard row immediately after `afterRow`, pre-filling the activity. */
+    function addHazardForActivity(afterRow) {
+        var newRow = emptyRow();
+        newRow.activity_condition = afterRow.activity_condition;
+
+        var idx = state.rows.findIndex(function (r) { return r.id === afterRow.id; });
+        if (idx === -1) {
+            state.rows.push(newRow);
+        } else {
+            state.rows.splice(idx + 1, 0, newRow);
+        }
+        state.rows.forEach(function (r, i) { r.sort_order = i; });
+
+        saveToStorage();
+        render();
+
+        // Focus the hazard textarea (second textarea) of the newly inserted row
+        var tbody = document.getElementById('assessment-tbody');
+        if (!tbody) return;
+        var newTr = tbody.querySelectorAll('tr')[idx + 1];
+        if (newTr) {
+            var tas = newTr.querySelectorAll('textarea');
+            var target = tas[1] || tas[0]; // [0] = activity, [1] = hazard
+            if (target) {
+                target.focus();
+                target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+    }
+
     function makeRiskBadgeTd(row, catField, hexField) {
         var td   = document.createElement('td');
         td.className = 'risk-badge-td';
@@ -436,9 +505,11 @@
 
     // ── Row rendering ─────────────────────────────────────────────────────────
 
-    function renderRow(row, rowNum) {
+    function renderRow(row, rowNum, isGrouped, isGroupStart) {
         var tr = document.createElement('tr');
         tr.dataset.id = row.id;
+        if (isGrouped)    tr.classList.add('is-hazard-sibling');
+        if (isGroupStart) tr.classList.add('is-hazard-group-start');
 
         var cc = cfg.columnConfig;
 
@@ -458,7 +529,7 @@
         tr.appendChild(tdNum);
 
         // Hazard description columns (textareas so text can wrap and be resized)
-        if (cc.show_activity_condition) tr.appendChild(makeTextarea(row, 'activity_condition', 'Activity / condition'));
+        if (cc.show_activity_condition) tr.appendChild(makeActivityCell(row));
         tr.appendChild(makeTextarea(row, 'hazard', 'Describe the hazard…'));
         if (cc.show_exposure_description) tr.appendChild(makeTextarea(row, 'exposure_description', 'Exposure description'));
         if (cc.show_exposed_assets)       tr.appendChild(makeTextarea(row, 'exposed_assets', 'Persons / assets at risk'));
@@ -538,7 +609,13 @@
 
         tbody.innerHTML = '';
         state.rows.forEach(function (row, idx) {
-            tbody.appendChild(renderRow(row, idx + 1));
+            var prev = idx > 0 ? state.rows[idx - 1] : null;
+            var next = idx < state.rows.length - 1 ? state.rows[idx + 1] : null;
+            var sameAsPrev = prev && prev.activity_condition && prev.activity_condition === row.activity_condition;
+            var sameAsNext = next && next.activity_condition && next.activity_condition === row.activity_condition;
+            var isGrouped    = !!sameAsPrev;
+            var isGroupStart = !sameAsPrev && !!sameAsNext && !!row.activity_condition;
+            tbody.appendChild(renderRow(row, idx + 1, isGrouped, isGroupStart));
         });
 
         updateEmptyState();
@@ -607,12 +684,8 @@
                 state.rows = newOrder.map(function (id) { return rowMap[id]; }).filter(Boolean);
                 state.rows.forEach(function (r, i) { r.sort_order = i; });
 
-                // Refresh row numbers in DOM
-                tbody.querySelectorAll('.row-num').forEach(function (el, i) {
-                    el.textContent = i + 1;
-                });
-
                 saveToStorage();
+                render(); // recalculates grouping classes and row numbers
             }
         });
     }
