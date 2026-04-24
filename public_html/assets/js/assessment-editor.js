@@ -633,7 +633,7 @@
 
         // Proposed controls + residual risk
         if (cc.show_proposed_controls) {
-            tr.appendChild(makeControlsCell(row, 'proposed', false));
+            tr.appendChild(makeControlsCell(row, 'proposed', !!cc.show_control_type));
         }
         if (cc.show_residual_risk) {
             var updateResidual = function () {
