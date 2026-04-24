@@ -1,5 +1,32 @@
 # Change Log — Smart Risk Assessment
 
+## [Phase 1 — 5.4 Assessment List / Dashboard] — 2026-04-24
+
+### Added
+- **Dashboard Quick Stats** — four stat cards at top of dashboard: Total Assessments, Open Drafts, Shared With Me, Overdue Reviews; alert styling on overdue count when > 0
+- **Dashboard Recent Assessments table** — shows up to 8 most-recently-updated assessments with title, reference, matrix, status badge, highest-risk badge, and updated date; replaces navigation tiles as primary content
+- **`Assessment::statsForUser()`** — returns total, drafts, shared_with_me, and overdue counts for a user in four targeted SQL queries
+- **`Assessment::recentForUser()`** — returns N most-recent assessments with highest_risk_category + highest_risk_colour via correlated subquery (severity × likelihood DESC)
+- **`Assessment::findAllFiltered()`** — replaces `findAllForUser` in the list page; supports sort (title, updated_at, created_at, status, row_count), direction, status filter, and ILIKE search across title, reference_number, hazard, and effect text (with row subquery exists)
+- **Sortable column headers** on the assessment list — click Title, Rows, Status, Updated to toggle asc/desc; active column shows sort-direction icon
+- **Status filter tabs** on the assessment list — All / Draft / In Review / Approved / Archived; preserves current sort and search when switching
+- **Server-side search form** on assessment list — searches title, reference number, and hazard/effect text via `ILIKE`; replaces previous client-side JS filter
+- **Highest Risk column** on the assessment list — colour-coded badge from the worst (severity × likelihood) row of each assessment; shows "—" if no rows have been rated yet
+- **Dashboard stat card CSS** — `.dashboard-stat-card`, `.dashboard-stat-icon`, `.dashboard-stat-value`, `.dashboard-stat-label`, alert variant; sort-link and status-tab styles for the list
+
+### Changed
+- **DashboardController** — now loads stats + recent assessments and passes them to the view
+- **AssessmentController::index** — reads `?sort`, `?dir`, `?q`, `?status` query params and delegates to `findAllFiltered`
+
+### Files involved
+- `src/Models/Assessment.php`
+- `src/Controllers/DashboardController.php`, `src/Controllers/AssessmentController.php`
+- `templates/dashboard/index.php` (rebuilt)
+- `templates/assessments/index.php` (rebuilt)
+- `public_html/assets/css/app.css`
+
+---
+
 ## [Phase 1 — 5.3 Assessment CRUD] — 2026-04-19
 
 ### Added

@@ -20,7 +20,7 @@ class AssessmentController
 {
     /**
      * GET /assessments
-     * List all assessments visible to the current user.
+     * List all assessments visible to the current user, with sort/filter/search.
      */
     public function index(Request $request): Response
     {
@@ -29,16 +29,26 @@ class AssessmentController
         }
 
         Session::start();
-        $userId      = (int) Session::get('user_id');
-        $assessments = Assessment::findAllForUser($userId);
+        $userId = (int) Session::get('user_id');
+
+        $sort   = $request->query('sort',   'updated_at');
+        $dir    = $request->query('dir',    'desc');
+        $search = trim($request->query('q', ''));
+        $status = $request->query('status', '');
+
+        $assessments = Assessment::findAllFiltered($userId, $sort, $dir, $search, $status);
 
         return Response::html(View::render('assessments/index', [
-            'pageTitle'     => 'My Assessments',
-            'assessments'   => $assessments,
-            'csrf'          => Csrf::token(),
-            'statusLabels'  => Assessment::STATUS_LABELS,
-            'statusColors'  => Assessment::STATUS_COLORS,
-            'templateLabels'=> Assessment::TEMPLATE_LABELS,
+            'pageTitle'      => 'My Assessments',
+            'assessments'    => $assessments,
+            'csrf'           => Csrf::token(),
+            'statusLabels'   => Assessment::STATUS_LABELS,
+            'statusColors'   => Assessment::STATUS_COLORS,
+            'templateLabels' => Assessment::TEMPLATE_LABELS,
+            'sort'           => $sort,
+            'dir'            => $dir,
+            'search'         => $search,
+            'statusFilter'   => $status,
         ]));
     }
 

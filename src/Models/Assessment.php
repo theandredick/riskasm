@@ -99,6 +99,180 @@ class Assessment
     // ── Queries ───────────────────────────────────────────────────────────────
 
     /**
+     * Dashboard quick-stats for the given user.
+     * Returns: total, drafts, shared_with_me, overdue_reviews.
+     */
+    public static function statsForUser(int $userId): array
+    {
+        $total = (int) Database::fetchScalar(
+            'SELECT COUNT(*)
+             FROM assessments a
+             WHERE a.owner_id = ?
+                OR EXISTS (
+                    SELECT 1 FROM assessment_shares s
+                    WHERE s.assessment_id = a.id AND s.shared_with_user_id = ?
+                )',
+            [$userId, $userId]
+        );
+
+        $drafts = (int) Database::fetchScalar(
+            "SELECT COUNT(*) FROM assessments
+             WHERE owner_id = ? AND status = 'draft'",
+            [$userId]
+        );
+
+        $sharedWithMe = (int) Database::fetchScalar(
+            'SELECT COUNT(*)
+             FROM assessments a
+             JOIN assessment_shares s ON s.assessment_id = a.id
+             WHERE s.shared_with_user_id = ? AND a.owner_id != ?',
+            [$userId, $userId]
+        );
+
+        $overdue = (int) Database::fetchScalar(
+            "SELECT COUNT(*)
+             FROM assessments
+             WHERE owner_id = ?
+               AND review_date IS NOT NULL
+               AND review_date < CURRENT_DATE
+               AND status NOT IN ('archived')",
+            [$userId]
+        );
+
+        return [
+            'total'          => $total,
+            'drafts'         => $drafts,
+            'shared_with_me' => $sharedWithMe,
+            'overdue'        => $overdue,
+        ];
+    }
+
+    /**
+     * Return the most-recently-updated $limit assessments for the dashboard widget.
+     * Includes highest_risk_category + highest_risk_colour from assessment rows.
+     */
+    public static function recentForUser(int $userId, int $limit = 8): array
+    {
+        $rows = Database::fetchAll(
+            'SELECT a.id, a.title, a.reference_number, a.status, a.updated_at,
+                    a.owner_id, rm.name AS matrix_name,
+                    (a.owner_id = ?) AS is_owned,
+                    (SELECT ar.risk_category
+                     FROM assessment_rows ar
+                     WHERE ar.assessment_id = a.id
+                       AND ar.severity_value IS NOT NULL
+                       AND ar.likelihood_value IS NOT NULL
+                     ORDER BY (ar.severity_value * ar.likelihood_value) DESC
+                     LIMIT 1) AS highest_risk_category,
+                    (SELECT ar.colour_hex
+                     FROM assessment_rows ar
+                     WHERE ar.assessment_id = a.id
+                       AND ar.severity_value IS NOT NULL
+                       AND ar.likelihood_value IS NOT NULL
+                     ORDER BY (ar.severity_value * ar.likelihood_value) DESC
+                     LIMIT 1) AS highest_risk_colour
+             FROM assessments a
+             JOIN risk_matrices rm ON rm.id = a.matrix_id
+             WHERE a.owner_id = ?
+                OR EXISTS (
+                    SELECT 1 FROM assessment_shares s
+                    WHERE s.assessment_id = a.id AND s.shared_with_user_id = ?
+                )
+             ORDER BY a.updated_at DESC
+             LIMIT ?',
+            [$userId, $userId, $userId, $limit]
+        );
+
+        return $rows;
+    }
+
+    /**
+     * Return all assessments visible to $userId with optional search, status filter,
+     * and sort order. Includes highest risk from rows.
+     *
+     * @param string $sort   Column key: title|created_at|updated_at|status|row_count
+     * @param string $dir    asc|desc
+     * @param string $search ILIKE search across title, reference_number, and hazard text
+     * @param string $status Filter by status value, or '' for all
+     */
+    public static function findAllFiltered(
+        int    $userId,
+        string $sort   = 'updated_at',
+        string $dir    = 'desc',
+        string $search = '',
+        string $status = '',
+    ): array {
+        $allowed = ['title', 'created_at', 'updated_at', 'status', 'row_count'];
+        if (!in_array($sort, $allowed, true)) {
+            $sort = 'updated_at';
+        }
+        $dir = strtolower($dir) === 'asc' ? 'ASC' : 'DESC';
+
+        $orderClause = match ($sort) {
+            'title'      => "a.title {$dir}",
+            'created_at' => "a.created_at {$dir}",
+            'status'     => "a.status {$dir}",
+            'row_count'  => "(SELECT COUNT(*) FROM assessment_rows WHERE assessment_id = a.id) {$dir}",
+            default      => "a.updated_at {$dir}",
+        };
+
+        // First param is for is_owned in SELECT; remainder are for WHERE
+        $params = [$userId, $userId, $userId];
+        $where  = ['(a.owner_id = ? OR EXISTS (SELECT 1 FROM assessment_shares s WHERE s.assessment_id = a.id AND s.shared_with_user_id = ?))'];
+
+        if ($status !== '' && in_array($status, self::STATUSES, true)) {
+            $where[]  = 'a.status = ?';
+            $params[] = $status;
+        }
+
+        if ($search !== '') {
+            $like     = '%' . $search . '%';
+            $where[]  = '(a.title ILIKE ? OR a.reference_number ILIKE ? OR EXISTS (SELECT 1 FROM assessment_rows ar WHERE ar.assessment_id = a.id AND (ar.hazard ILIKE ? OR ar.effect ILIKE ?)))';
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+        }
+
+        $whereSQL = implode(' AND ', $where);
+
+        $rows = Database::fetchAll(
+            "SELECT a.*,
+                    rm.name AS matrix_name,
+                    u.display_name AS owner_name,
+                    (a.owner_id = ?) AS is_owned,
+                    (SELECT COUNT(*) FROM assessment_rows WHERE assessment_id = a.id) AS row_count,
+                    (SELECT ar.risk_category
+                     FROM assessment_rows ar
+                     WHERE ar.assessment_id = a.id
+                       AND ar.severity_value IS NOT NULL
+                       AND ar.likelihood_value IS NOT NULL
+                     ORDER BY (ar.severity_value * ar.likelihood_value) DESC
+                     LIMIT 1) AS highest_risk_category,
+                    (SELECT ar.colour_hex
+                     FROM assessment_rows ar
+                     WHERE ar.assessment_id = a.id
+                       AND ar.severity_value IS NOT NULL
+                       AND ar.likelihood_value IS NOT NULL
+                     ORDER BY (ar.severity_value * ar.likelihood_value) DESC
+                     LIMIT 1) AS highest_risk_colour
+             FROM assessments a
+             JOIN risk_matrices rm ON rm.id = a.matrix_id
+             JOIN users u ON u.id = a.owner_id
+             WHERE {$whereSQL}
+             ORDER BY {$orderClause}",
+            $params
+        );
+
+        foreach ($rows as &$row) {
+            $row['column_config'] = json_decode($row['column_config'], true)
+                ?? self::columnConfigForTemplate($row['template_type']);
+        }
+
+        return $rows;
+    }
+
+    /**
      * Find an assessment by ID accessible to $userId (owner or share).
      * Returns null if not found or not accessible.
      */
