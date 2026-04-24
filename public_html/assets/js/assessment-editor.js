@@ -647,11 +647,13 @@
         .then(function (resp) { return resp.json(); })
         .then(function (data) {
             if (data.success && Array.isArray(data.rows)) {
-                state.rows       = data.rows;
+                state.rows       = data.rows.map(normalizeRow);
                 state.deletedIds = [];
                 saveToStorage();
                 markDirty(false);
                 render();
+                var banner = document.getElementById('local-draft-banner');
+                if (banner) banner.style.display = 'none';
             }
         })
         .catch(function (e) {
