@@ -31,8 +31,8 @@ class AssessmentController
         Session::start();
         $userId = (int) Session::get('user_id');
 
-        $sort   = $request->query('sort',   'updated_at');
-        $dir    = $request->query('dir',    'desc');
+        $sort   = $request->query('sort',   'review_date');
+        $dir    = $request->query('dir',    'asc');
         $search = trim($request->query('q', ''));
         $status = $request->query('status', '');
 

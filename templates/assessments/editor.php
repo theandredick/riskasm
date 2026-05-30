@@ -211,6 +211,12 @@ $showAccept    = !empty($cc['show_accept_yn']);
         Review: <?= htmlspecialchars($assessment['review_date']) ?>
     </span>
     <?php endif; ?>
+    <?php if (!empty($assessment['updated_at'])): ?>
+    <span title="Last updated">
+        <span class="icon is-small"><i class="fas fa-clock"></i></span>
+        Updated: <?= date('d M Y', strtotime($assessment['updated_at'])) ?>
+    </span>
+    <?php endif; ?>
     <?php if (!empty($assessment['description'])): ?>
     <span>
         <span class="icon is-small"><i class="fas fa-circle-info"></i></span>

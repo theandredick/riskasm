@@ -202,18 +202,20 @@ class Assessment
         string $search = '',
         string $status = '',
     ): array {
-        $allowed = ['title', 'created_at', 'updated_at', 'status', 'row_count'];
+        $allowed = ['title', 'created_at', 'updated_at', 'review_date', 'status', 'row_count'];
         if (!in_array($sort, $allowed, true)) {
-            $sort = 'updated_at';
+            $sort = 'review_date';
         }
         $dir = strtolower($dir) === 'asc' ? 'ASC' : 'DESC';
 
         $orderClause = match ($sort) {
-            'title'      => "a.title {$dir}",
-            'created_at' => "a.created_at {$dir}",
-            'status'     => "a.status {$dir}",
-            'row_count'  => "(SELECT COUNT(*) FROM assessment_rows WHERE assessment_id = a.id) {$dir}",
-            default      => "a.updated_at {$dir}",
+            'title'       => "a.title {$dir}",
+            'created_at'  => "a.created_at {$dir}",
+            'updated_at'  => "a.updated_at {$dir}",
+            'review_date' => "a.review_date IS NULL, a.review_date {$dir}",
+            'status'      => "a.status {$dir}",
+            'row_count'   => "(SELECT COUNT(*) FROM assessment_rows WHERE assessment_id = a.id) {$dir}",
+            default       => "a.review_date IS NULL, a.review_date ASC",
         };
 
         // First param is for is_owned in SELECT; remainder are for WHERE

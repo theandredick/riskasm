@@ -13,8 +13,8 @@ $userRole     = Session::userRole() ?? 'viewer';
 $isViewer     = $userRole === 'viewer';
 
 // Active filters/sort from controller
-$sort         = $sort         ?? 'updated_at';
-$dir          = $dir          ?? 'desc';
+$sort         = $sort         ?? 'review_date';
+$dir          = $dir          ?? 'asc';
 $search       = $search       ?? '';
 $statusFilter = $statusFilter ?? '';
 
@@ -46,8 +46,8 @@ function filterUrl(string $statusFilter, string $sort, string $dir, string $sear
 {
     $params = array_filter([
         'status' => $statusFilter,
-        'sort'   => $sort !== 'updated_at' ? $sort : '',
-        'dir'    => $dir !== 'desc'        ? $dir  : '',
+        'sort'   => $sort !== 'review_date' ? $sort : '',
+        'dir'    => $dir !== 'asc'          ? $dir  : '',
         'q'      => $search,
     ], fn($v) => $v !== '');
     return '/assessments' . ($params ? '?' . http_build_query($params) : '');
@@ -214,8 +214,8 @@ function listRiskBadgeStyle(string $hex): string
                 </th>
                 <th>Highest Risk</th>
                 <th>
-                    <a href="<?= sortUrl('updated_at', $sort, $dir, $search, $statusFilter) ?>" class="has-text-dark">
-                        Updated <?= sortIcon('updated_at', $sort, $dir) ?>
+                    <a href="<?= sortUrl('review_date', $sort, $dir, $search, $statusFilter) ?>" class="has-text-dark">
+                        Review <?= sortIcon('review_date', $sort, $dir) ?>
                     </a>
                 </th>
                 <th style="width:120px;"></th>
@@ -227,7 +227,7 @@ function listRiskBadgeStyle(string $hex): string
                 $statusLabel = $statusLabels[$a['status']] ?? $a['status'];
                 $statusColor = $statusColors[$a['status']] ?? 'is-light';
                 $tLabel      = $templateLabels[$a['template_type']] ?? $a['template_type'];
-                $updatedAt   = date('d M Y', strtotime($a['updated_at']));
+                $reviewDate  = !empty($a['review_date']) ? date('d M Y', strtotime($a['review_date'])) : '—';
                 $riskCat     = $a['highest_risk_category'] ?? null;
                 $riskColour  = $a['highest_risk_colour']   ?? null;
             ?>
@@ -268,7 +268,7 @@ function listRiskBadgeStyle(string $hex): string
                     <?php endif; ?>
                 </td>
                 <td class="has-text-grey is-size-7">
-                    <?= $updatedAt ?>
+                    <?= $reviewDate ?>
                 </td>
                 <td>
                     <div class="is-flex" style="gap:0.3rem;">
