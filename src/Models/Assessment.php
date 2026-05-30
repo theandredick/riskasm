@@ -197,10 +197,11 @@ class Assessment
      */
     public static function findAllFiltered(
         int    $userId,
-        string $sort   = 'updated_at',
-        string $dir    = 'desc',
-        string $search = '',
-        string $status = '',
+        string $sort    = 'updated_at',
+        string $dir     = 'desc',
+        string $search  = '',
+        string $status  = '',
+        bool   $overdue = false,
     ): array {
         $allowed = ['title', 'created_at', 'updated_at', 'review_date', 'status', 'row_count'];
         if (!in_array($sort, $allowed, true)) {
@@ -222,7 +223,11 @@ class Assessment
         $params = [$userId, $userId, $userId];
         $where  = ['(a.owner_id = ? OR EXISTS (SELECT 1 FROM assessment_shares s WHERE s.assessment_id = a.id AND s.shared_with_user_id = ?))'];
 
-        if ($status !== '' && in_array($status, self::STATUSES, true)) {
+        if ($overdue) {
+            $where[] = 'a.review_date IS NOT NULL';
+            $where[] = 'a.review_date < CURRENT_DATE';
+            $where[] = "a.status NOT IN ('approved', 'archived')";
+        } elseif ($status !== '' && in_array($status, self::STATUSES, true)) {
             $where[]  = 'a.status = ?';
             $params[] = $status;
         }

@@ -31,12 +31,13 @@ class AssessmentController
         Session::start();
         $userId = (int) Session::get('user_id');
 
-        $sort   = $request->query('sort',   'review_date');
-        $dir    = $request->query('dir',    'asc');
-        $search = trim($request->query('q', ''));
-        $status = $request->query('status', '');
+        $sort    = $request->query('sort',    'review_date');
+        $dir     = $request->query('dir',     'asc');
+        $search  = trim($request->query('q',  ''));
+        $status  = $request->query('status',  '');
+        $overdue = (bool) $request->query('overdue', '');
 
-        $assessments = Assessment::findAllFiltered($userId, $sort, $dir, $search, $status);
+        $assessments = Assessment::findAllFiltered($userId, $sort, $dir, $search, $status, $overdue);
 
         return Response::html(View::render('assessments/index', [
             'pageTitle'      => 'My Assessments',
@@ -49,6 +50,7 @@ class AssessmentController
             'dir'            => $dir,
             'search'         => $search,
             'statusFilter'   => $status,
+            'overdueFilter'  => $overdue,
         ]));
     }
 

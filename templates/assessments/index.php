@@ -13,22 +13,24 @@ $userRole     = Session::userRole() ?? 'viewer';
 $isViewer     = $userRole === 'viewer';
 
 // Active filters/sort from controller
-$sort         = $sort         ?? 'review_date';
-$dir          = $dir          ?? 'asc';
-$search       = $search       ?? '';
-$statusFilter = $statusFilter ?? '';
+$sort          = $sort          ?? 'review_date';
+$dir           = $dir           ?? 'asc';
+$search        = $search        ?? '';
+$statusFilter  = $statusFilter  ?? '';
+$overdueFilter = $overdueFilter ?? false;
 
 /**
  * Build a URL for a column sort link, toggling direction if already sorted by that column.
  */
-function sortUrl(string $col, string $currentSort, string $currentDir, string $search, string $statusFilter): string
+function sortUrl(string $col, string $currentSort, string $currentDir, string $search, string $statusFilter, bool $overdueFilter = false): string
 {
     $nextDir = ($currentSort === $col && $currentDir === 'asc') ? 'desc' : 'asc';
     $params  = array_filter([
-        'sort'   => $col,
-        'dir'    => $nextDir,
-        'q'      => $search,
-        'status' => $statusFilter,
+        'sort'    => $col,
+        'dir'     => $nextDir,
+        'q'       => $search,
+        'status'  => $statusFilter,
+        'overdue' => $overdueFilter ? '1' : '',
     ], fn($v) => $v !== '');
     return '/assessments?' . http_build_query($params);
 }
@@ -42,13 +44,14 @@ function sortIcon(string $col, string $currentSort, string $currentDir): string
     return "<span class=\"icon is-small has-text-link\"><i class=\"fas {$icon}\"></i></span>";
 }
 
-function filterUrl(string $statusFilter, string $sort, string $dir, string $search): string
+function filterUrl(string $statusFilter, string $sort, string $dir, string $search, bool $overdue = false): string
 {
     $params = array_filter([
-        'status' => $statusFilter,
-        'sort'   => $sort !== 'review_date' ? $sort : '',
-        'dir'    => $dir !== 'asc'          ? $dir  : '',
-        'q'      => $search,
+        'status'  => $statusFilter,
+        'sort'    => $sort !== 'review_date' ? $sort : '',
+        'dir'     => $dir !== 'asc'          ? $dir  : '',
+        'q'       => $search,
+        'overdue' => $overdue ? '1' : '',
     ], fn($v) => $v !== '');
     return '/assessments' . ($params ? '?' . http_build_query($params) : '');
 }
@@ -101,8 +104,11 @@ function listRiskBadgeStyle(string $hex): string
 
 <!-- ── Search + Status filter bar ───────────────────────────────────────────── -->
 <form method="GET" action="/assessments" id="assessment-filter-form" class="mb-4">
-    <input type="hidden" name="sort"   value="<?= htmlspecialchars($sort) ?>">
-    <input type="hidden" name="dir"    value="<?= htmlspecialchars($dir) ?>">
+    <input type="hidden" name="sort"    value="<?= htmlspecialchars($sort) ?>">
+    <input type="hidden" name="dir"     value="<?= htmlspecialchars($dir) ?>">
+    <?php if ($overdueFilter): ?>
+    <input type="hidden" name="overdue" value="1">
+    <?php endif; ?>
     <div class="is-flex is-flex-wrap-wrap" style="gap:0.75rem; align-items:flex-end;">
         <!-- Search input -->
         <div class="field mb-0" style="flex:1; min-width:220px; max-width:400px;">
@@ -115,7 +121,7 @@ function listRiskBadgeStyle(string $hex): string
                 <span class="icon is-left is-small"><i class="fas fa-magnifying-glass"></i></span>
                 <?php if ($search !== ''): ?>
                 <span class="icon is-right is-small" style="pointer-events:all;">
-                    <a href="<?= filterUrl($statusFilter, $sort, $dir, '') ?>" title="Clear search" class="has-text-grey">
+                    <a href="<?= filterUrl($statusFilter, $sort, $dir, '', $overdueFilter) ?>" title="Clear search" class="has-text-grey">
                         <i class="fas fa-xmark"></i>
                     </a>
                 </span>
@@ -135,31 +141,37 @@ function listRiskBadgeStyle(string $hex): string
 <!-- ── Status filter tabs ───────────────────────────────────────────────────── -->
 <div class="tabs is-small mb-4">
     <ul>
-        <li class="<?= $statusFilter === '' ? 'is-active' : '' ?>">
+        <li class="<?= !$overdueFilter && $statusFilter === '' ? 'is-active' : '' ?>">
             <a href="<?= filterUrl('', $sort, $dir, $search) ?>">All</a>
         </li>
-        <li class="<?= $statusFilter === 'draft' ? 'is-active' : '' ?>">
+        <li class="<?= !$overdueFilter && $statusFilter === 'draft' ? 'is-active' : '' ?>">
             <a href="<?= filterUrl('draft', $sort, $dir, $search) ?>">
                 <span class="icon is-small"><i class="fas fa-pen"></i></span>
                 <span>Draft</span>
             </a>
         </li>
-        <li class="<?= $statusFilter === 'in_review' ? 'is-active' : '' ?>">
+        <li class="<?= !$overdueFilter && $statusFilter === 'in_review' ? 'is-active' : '' ?>">
             <a href="<?= filterUrl('in_review', $sort, $dir, $search) ?>">
                 <span class="icon is-small"><i class="fas fa-eye"></i></span>
                 <span>In Review</span>
             </a>
         </li>
-        <li class="<?= $statusFilter === 'approved' ? 'is-active' : '' ?>">
+        <li class="<?= !$overdueFilter && $statusFilter === 'approved' ? 'is-active' : '' ?>">
             <a href="<?= filterUrl('approved', $sort, $dir, $search) ?>">
                 <span class="icon is-small"><i class="fas fa-check-circle"></i></span>
                 <span>Approved</span>
             </a>
         </li>
-        <li class="<?= $statusFilter === 'archived' ? 'is-active' : '' ?>">
+        <li class="<?= !$overdueFilter && $statusFilter === 'archived' ? 'is-active' : '' ?>">
             <a href="<?= filterUrl('archived', $sort, $dir, $search) ?>">
                 <span class="icon is-small"><i class="fas fa-archive"></i></span>
                 <span>Archived</span>
+            </a>
+        </li>
+        <li class="<?= $overdueFilter ? 'is-active' : '' ?>">
+            <a href="<?= filterUrl('', $sort, $dir, $search, true) ?>" class="<?= $overdueFilter ? '' : 'has-text-danger' ?>">
+                <span class="icon is-small"><i class="fas fa-calendar-xmark"></i></span>
+                <span>Overdue</span>
             </a>
         </li>
     </ul>
@@ -171,7 +183,7 @@ function listRiskBadgeStyle(string $hex): string
     <p class="has-text-grey-light mb-3">
         <span class="icon is-large"><i class="fas fa-clipboard-list fa-3x"></i></span>
     </p>
-    <?php if ($search !== '' || $statusFilter !== ''): ?>
+    <?php if ($search !== '' || $statusFilter !== '' || $overdueFilter): ?>
     <p class="title is-5 has-text-grey">No assessments match your filters</p>
     <p class="has-text-grey is-size-6 mb-4">Try clearing the search or changing the status tab.</p>
     <a class="button is-light is-small" href="/assessments">Clear filters</a>
@@ -195,7 +207,7 @@ function listRiskBadgeStyle(string $hex): string
         <thead>
             <tr>
                 <th>
-                    <a href="<?= sortUrl('title', $sort, $dir, $search, $statusFilter) ?>" class="has-text-dark">
+                    <a href="<?= sortUrl('title', $sort, $dir, $search, $statusFilter, $overdueFilter) ?>" class="has-text-dark">
                         Title <?= sortIcon('title', $sort, $dir) ?>
                     </a>
                 </th>
@@ -203,18 +215,18 @@ function listRiskBadgeStyle(string $hex): string
                 <th>Template</th>
                 <th>Matrix</th>
                 <th class="has-text-centered">
-                    <a href="<?= sortUrl('row_count', $sort, $dir, $search, $statusFilter) ?>" class="has-text-dark">
+                    <a href="<?= sortUrl('row_count', $sort, $dir, $search, $statusFilter, $overdueFilter) ?>" class="has-text-dark">
                         Rows <?= sortIcon('row_count', $sort, $dir) ?>
                     </a>
                 </th>
                 <th>
-                    <a href="<?= sortUrl('status', $sort, $dir, $search, $statusFilter) ?>" class="has-text-dark">
+                    <a href="<?= sortUrl('status', $sort, $dir, $search, $statusFilter, $overdueFilter) ?>" class="has-text-dark">
                         Status <?= sortIcon('status', $sort, $dir) ?>
                     </a>
                 </th>
                 <th>Highest Risk</th>
                 <th>
-                    <a href="<?= sortUrl('review_date', $sort, $dir, $search, $statusFilter) ?>" class="has-text-dark">
+                    <a href="<?= sortUrl('review_date', $sort, $dir, $search, $statusFilter, $overdueFilter) ?>" class="has-text-dark">
                         Review <?= sortIcon('review_date', $sort, $dir) ?>
                     </a>
                 </th>
@@ -304,7 +316,7 @@ function listRiskBadgeStyle(string $hex): string
 </div>
 <p class="has-text-grey is-size-7 mt-2">
     <?= count($assessments) ?> assessment<?= count($assessments) !== 1 ? 's' : '' ?>
-    <?php if ($search !== '' || $statusFilter !== ''): ?>
+    <?php if ($search !== '' || $statusFilter !== '' || $overdueFilter): ?>
     — <a href="/assessments" class="has-text-grey">clear filters</a>
     <?php endif; ?>
 </p>

@@ -104,7 +104,11 @@ $statusColors = $statusColors ?? [];
             </div>
             <div class="mt-3">
                 <?php if ($stats['overdue'] > 0): ?>
-                    <span class="is-size-7 has-text-danger"><i class="fas fa-triangle-exclamation"></i> Review dates passed</span>
+                    <a href="/assessments?overdue=1" class="is-size-7 has-text-danger">
+                        <i class="fas fa-triangle-exclamation"></i> Review dates passed
+                    </a>
+                    <br>
+                    <a href="/assessments?overdue=1" class="is-size-7 has-text-danger">View overdue →</a>
                 <?php else: ?>
                     <span class="is-size-7 has-text-grey">All reviews on track</span>
                 <?php endif; ?>
