@@ -100,11 +100,6 @@ $statusColors = $statusColors ?? [];
                 <div>
                     <p class="dashboard-stat-value <?= $stats['overdue'] > 0 ? 'has-text-danger' : '' ?>">
                         <?= $stats['overdue'] ?>
-                        <?php if ($stats['overdue'] > 0): ?>
-                        <span class="is-size-7 has-text-danger ml-1" title="Review dates passed">
-                            <i class="fas fa-triangle-exclamation"></i>
-                        </span>
-                        <?php endif; ?>
                     </p>
                     <p class="dashboard-stat-label">Overdue Reviews</p>
                 </div>
