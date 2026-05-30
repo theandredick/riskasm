@@ -98,16 +98,19 @@ $statusColors = $statusColors ?? [];
                     <i class="fas fa-calendar-xmark"></i>
                 </div>
                 <div>
-                    <p class="dashboard-stat-value <?= $stats['overdue'] > 0 ? 'has-text-danger' : '' ?>"><?= $stats['overdue'] ?></p>
+                    <p class="dashboard-stat-value <?= $stats['overdue'] > 0 ? 'has-text-danger' : '' ?>">
+                        <?= $stats['overdue'] ?>
+                        <?php if ($stats['overdue'] > 0): ?>
+                        <span class="is-size-7 has-text-danger ml-1" title="Review dates passed">
+                            <i class="fas fa-triangle-exclamation"></i>
+                        </span>
+                        <?php endif; ?>
+                    </p>
                     <p class="dashboard-stat-label">Overdue Reviews</p>
                 </div>
             </div>
             <div class="mt-3">
                 <?php if ($stats['overdue'] > 0): ?>
-                    <a href="/assessments?overdue=1" class="is-size-7 has-text-danger">
-                        <i class="fas fa-triangle-exclamation"></i> Review dates passed
-                    </a>
-                    <br>
                     <a href="/assessments?overdue=1" class="is-size-7 has-text-danger">View overdue →</a>
                 <?php else: ?>
                     <span class="is-size-7 has-text-grey">All reviews on track</span>
